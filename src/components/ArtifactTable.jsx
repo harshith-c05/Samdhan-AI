@@ -173,8 +173,16 @@ export default function ArtifactTable({
                     </td>
 
                     {/* Filename */}
-                    <td className="py-3 px-4 text-white font-medium truncate max-w-[190px]" title={artifact.filename}>
-                      {artifact.filename}
+                    <td className="py-3 px-4 text-white font-medium max-w-[210px]" title={artifact.filename}>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="truncate">{artifact.filename}</span>
+                        {artifact.antiForensicAlert && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500/25 text-rose-300 border border-rose-500/50 shrink-0 flex items-center space-x-1 animate-pulse" title="Anti-Forensics: Extension spoof detected. File is an executable masquerading as a document.">
+                            <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                            <span>SPOOF</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Type with icon */}

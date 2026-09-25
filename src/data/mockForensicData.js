@@ -101,6 +101,70 @@ Do NOT reboot or modify encrypted partitions, or your keys will be destroyed.`
     ]
   },
   {
+    id: "ART-1055",
+    filename: "invoice_q3_confidential.pdf",
+    type: "System trace",
+    claimedExtension: ".pdf",
+    detectedType: "Windows PE Executable / Dropper",
+    antiForensicAlert: "EXTENSION_SPOOF_DETECTED",
+    conflictDetected: true,
+    classificationConfidence: 99.4,
+    integrity: 98.0,
+    corruption: "None (Intact PE Binary Payload)",
+    evidenceRelevance: 96.0,
+    duplicate: false,
+    priorityScore: 95.8,
+    priorityTier: "Critical",
+    reason: "CRITICAL: Malicious PE executable disguised with .pdf extension to evade gateway filters (Magic: 4D 5A).",
+    metadata: {
+      size: "65,536 bytes",
+      sha256: "e7b8c9d0124fe78c18f3a9e2d1400ba589410efb817c7e5a0139b81f9a2e6f21",
+      md5: "8f12356c9d0124fe",
+      ssdeep: "96:9181aKq+z9Pz:9m1aKqz",
+      timestamps: {
+        carved: "2026-09-25T10:14:26Z",
+        inferredMtime: "2026-09-24T18:35:10Z",
+        incidentWindowMatch: true,
+      },
+      sourceOffset: "0x0072A400",
+      sector: "Sector 7,513,088",
+      mimeType: "application/x-dosexec",
+    },
+    classificationExplanation: {
+      label: "Disguised Windows PE Executable (MZ 0x4D5A)",
+      confidence: 99.4,
+      method: "Signal Trust Hierarchy (Magic Bytes > Untrusted Extension)",
+      signals: [
+        "Magic bytes '4D 5A' (MZ DOS header) verified at offset 0x00000000",
+        "PE signature '50 45 00 00' found at e_lfanew offset 0x00000080",
+        "Discrepancy: File extension '.pdf' conflicts with raw executable structure",
+        "Trust Hierarchy Resolution: Magic byte signature trusted over user-controlled extension"
+      ],
+      conflicts: "High Severity: invoice_q3_confidential.pdf masquerading as PDF document."
+    },
+    integrityAnalysis: {
+      percentComplete: 98,
+      corruptionType: "None",
+      missingData: "None"
+    },
+    recoveryInfo: {
+      sourceFragments: ["Frag-0072A400 (PE Headers)", "Frag-0072B400 (.text section)", "Frag-0072C400 (.rdata & imports)"],
+      carvingConfidence: 99.2,
+      fragmentationStatus: "Contiguous"
+    },
+    priorityExplanation: {
+      relevanceContrib: 38.4,
+      integrityContrib: 29.4,
+      recencyContrib: 19.5,
+      uniquenessContrib: 10.0,
+      total: 95.8
+    },
+    hexDump: "00000000  4d 5a 90 00 03 00 00 00  04 00 00 00 ff ff 00 00  |MZ..............|\n00000010  b8 00 00 00 00 00 00 00  40 00 00 00 00 00 00 00  |........@.......|\n00000020  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|\n00000030  00 00 00 00 00 00 00 00  00 00 00 00 80 00 00 00  |................|\n00000040  0e 1f ba 0e 00 b4 09 cd  21 b8 01 4c cd 21 54 68  |........!..L.!Th|\n00000050  69 73 20 70 72 6f 67 72  61 6d 20 63 61 6e 6e 6f  |is program canno|\n00000060  74 20 62 65 20 72 75 6e  20 69 6e 20 44 4f 53 20  |t be run in DOS |\n00000070  6d 6f 64 65 2e 0d 0d 0a  24 00 00 00 00 00 00 00  |mode....$.......|",
+    relatedArtifacts: [
+      { id: "ART-1052", name: "shadow_delete_script.bat", relation: "Stager Script Caller", score: 98.4 }
+    ]
+  },
+  {
     id: "ART-1052",
     filename: "carved_sec_0068D100_vssadmin.bat",
     type: "System trace",

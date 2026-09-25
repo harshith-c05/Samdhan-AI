@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SAMDHAN AI — Priority Scoring Engine (sec 4 of Classification & Prioritization spec)
  *
  * Formula (spec sec 4, verbatim):
@@ -136,6 +136,27 @@ export function computeUniquenessScore(isDuplicate, ssdeepSimilarity = 0) {
  * @param {number}  params.classificationConfidence - Used ONLY for reviewRequired flag, NOT the score
  * @returns {{ score: number, breakdown: Object, tier: string, reviewRequired: boolean }}
  */
+export const PRIORITY_PRESETS = Object.freeze({
+  standard: {
+    id: 'standard',
+    name: 'Standard Forensic Triage (§4 Spec)',
+    description: 'Balanced baseline across all 5 dimensions',
+    weights: { relevance: 0.35, integrity: 0.30, recency: 0.20, uniqueness: 0.15, noisePenalty: 0.10 }
+  },
+  ransomware: {
+    id: 'ransomware',
+    name: 'Active Ransomware Incident',
+    description: 'Heavily weights IOC matches and breach window recency',
+    weights: { relevance: 0.45, integrity: 0.20, recency: 0.25, uniqueness: 0.10, noisePenalty: 0.10 }
+  },
+  exfiltration: {
+    id: 'exfiltration',
+    name: 'IP Exfiltration & Recovery',
+    description: 'Prioritizes intact, unique confidential documents and DB logs',
+    weights: { relevance: 0.25, integrity: 0.40, recency: 0.10, uniqueness: 0.25, noisePenalty: 0.05 }
+  }
+});
+
 export function computePriorityScore({
   relevance             = 0.5,
   integrity             = 0.5,
@@ -146,7 +167,9 @@ export function computePriorityScore({
   ssdeepSimilarity      = 0,
   noisePenalty          = 0,
   classificationConfidence = 80,
+  customWeights         = null,
 }) {
+  const w = customWeights || WEIGHTS;
   // Normalise all inputs to 0-1 (accept either 0-100 or 0-1 scale gracefully)
   const R  = Math.max(0, Math.min(1, relevance  > 1 ? relevance  / 100 : relevance));
   const I  = Math.max(0, Math.min(1, integrity  > 1 ? integrity  / 100 : integrity));
@@ -156,11 +179,11 @@ export function computePriorityScore({
 
   // Spec formula: P = w1*I + w2*R + w3*T + w4*U - w5*NP
   const rawScore =
-    WEIGHTS.integrity    * I +
-    WEIGHTS.relevance    * R +
-    WEIGHTS.recency      * T +
-    WEIGHTS.uniqueness   * U -
-    WEIGHTS.noisePenalty * NP;
+    w.integrity    * I +
+    w.relevance    * R +
+    w.recency      * T +
+    w.uniqueness   * U -
+    w.noisePenalty * NP;
 
   const score = Math.max(0, Math.min(1, rawScore));
 

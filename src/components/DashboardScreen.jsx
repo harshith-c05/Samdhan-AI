@@ -2,10 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { 
   FileText, Database, Image as ImageIcon, Terminal, Binary, AlertOctagon, 
   Copy, CheckCircle, Percent, Filter, Search, RotateCcw, SlidersHorizontal, 
-  Layers, BarChart2, ShieldAlert 
+  Layers, BarChart2, ShieldAlert, Sliders, ChevronDown, ChevronUp, AlertTriangle,
+  ArrowRight, ExternalLink, Zap, ShieldCheck
 } from 'lucide-react';
 import ArtifactTable from './ArtifactTable';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { computePriorityScore, WEIGHTS, PRIORITY_PRESETS } from '../engine/priorityEngine';
+import { getTierBadgeClass, getConfidenceBadgeClass } from '../utils/forensicUtils';
 
 export default function DashboardScreen({ 
   artifacts, 
@@ -23,10 +26,48 @@ export default function DashboardScreen({
   const [sortField, setSortField] = useState('priorityScore');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showCharts, setShowCharts] = useState(false);
+  
+  // ── View Mode: Ranked Table vs 4 High-Value Groups (Lanes) ─────────────
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'lanes'
 
-  // Compute summary stats dynamically
+  // ── Interactive Priority Weight Simulator State ──────────────────────────
+  const [showWeightSimulator, setShowWeightSimulator] = useState(false);
+  const [activeWeights, setActiveWeights] = useState({ ...WEIGHTS });
+  const [activePreset, setActivePreset] = useState('standard');
+
+  // Dynamic re-scoring of artifacts with active custom weights
+  const rescoredArtifacts = useMemo(() => {
+    return artifacts.map(a => {
+      const scored = computePriorityScore({
+        relevance: a.evidenceRelevance,
+        integrity: a.integrity,
+        inferredMtime: a.metadata?.timestamps?.inferredMtime,
+        incidentStart: caseContext?.incidentStart,
+        incidentEnd: caseContext?.incidentEnd,
+        isDuplicate: a.duplicate,
+        ssdeepSimilarity: a.ssdeepSimilarity ?? 0,
+        noisePenalty: a.noisePenalty ?? 0,
+        classificationConfidence: a.classificationConfidence,
+        customWeights: activeWeights,
+      });
+
+      return {
+        ...a,
+        priorityScore: scored.score,
+        priorityTier: scored.tier,
+        reviewRequired: scored.reviewRequired,
+        priorityExplanation: {
+          ...a.priorityExplanation,
+          ...scored.breakdown,
+          total: Math.round(scored.score * 1000) / 10
+        }
+      };
+    });
+  }, [artifacts, activeWeights, caseContext]);
+
+  // Compute summary stats dynamically from rescored artifacts
   const stats = useMemo(() => {
-    const total = artifacts.length;
+    const total = rescoredArtifacts.length;
     let docs = 0;
     let dbs = 0;
     let photos = 0;
@@ -39,8 +80,8 @@ export default function DashboardScreen({
     let duplicates = 0;
     let totalConf = 0;
 
-    artifacts.forEach(a => {
-      const t = a.type?.toLowerCase();
+    rescoredArtifacts.forEach(a => {
+      const t = a.type?.toLowerCase() || '';
       if (t === 'document') docs++;
       else if (t === 'db log') dbs++;
       else if (t.includes('photo')) photos++;
@@ -73,7 +114,22 @@ export default function DashboardScreen({
       duplicates,
       avgConf
     };
-  }, [artifacts]);
+  }, [rescoredArtifacts]);
+
+  // Apply a weight preset
+  const handleApplyPreset = (presetKey) => {
+    const preset = PRIORITY_PRESETS[presetKey];
+    if (preset) {
+      setActivePreset(presetKey);
+      setActiveWeights({ ...preset.weights });
+    }
+  };
+
+  // Adjust a single weight slider
+  const handleWeightChange = (key, val) => {
+    setActivePreset('custom');
+    setActiveWeights(prev => ({ ...prev, [key]: parseFloat(val) }));
+  };
 
   // Tier distribution chart data
   const tierChartData = [
@@ -95,7 +151,7 @@ export default function DashboardScreen({
 
   // Filtered and sorted artifacts
   const filteredArtifacts = useMemo(() => {
-    return artifacts
+    return rescoredArtifacts
       .filter((a) => {
         // Search
         if (searchTerm) {
@@ -144,11 +200,26 @@ export default function DashboardScreen({
         if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [artifacts, searchTerm, typeFilter, tierFilter, confFilter, hideDuplicates, incidentWindowOnly, sortField, sortOrder]);
+  }, [rescoredArtifacts, searchTerm, typeFilter, tierFilter, confFilter, hideDuplicates, incidentWindowOnly, sortField, sortOrder]);
+
+  // Grouped artifacts into the 4 high-value categories (for 4-Lane Grouped View)
+  const laneGroups = useMemo(() => {
+    const filterAndSort = (items) => {
+      return items.sort((a, b) => b.priorityScore - a.priorityScore);
+    };
+
+    return {
+      documents: filterAndSort(rescoredArtifacts.filter(a => a.type === 'Document')),
+      dbLogs: filterAndSort(rescoredArtifacts.filter(a => a.type === 'DB log')),
+      photos: filterAndSort(rescoredArtifacts.filter(a => a.type?.toLowerCase().includes('photo'))),
+      systemTraces: filterAndSort(rescoredArtifacts.filter(a => a.type === 'System trace')),
+    };
+  }, [rescoredArtifacts]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Top Banner with Case Info & Filter Status */}
+    <div className="space-y-6 animate-fadeIn font-sans">
+      
+      {/* ── Top Banner with Case Info & Navigation Actions ───────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-dark-900 border border-zinc-800">
         <div>
           <div className="flex items-center space-x-2">
@@ -156,15 +227,42 @@ export default function DashboardScreen({
               EVIDENCE MATRIX ACTIVE
             </span>
             <span className="text-xs font-mono text-zinc-400">
-              Case ID: <span className="text-white font-semibold">{caseContext.caseId || 'CASE-2026-NIGHTFALL'}</span>
+              Case ID: <span className="text-white font-semibold">{caseContext?.caseId || 'CASE-2026-NIGHTFALL'}</span>
             </span>
           </div>
-          <h2 className="text-lg font-bold text-white mt-1">
-            {caseContext.caseTitle || 'Carved Fragments Triaging & Relevance Assessment'}
+          <h2 className="text-lg font-bold text-white mt-1 font-mono">
+            {caseContext?.caseTitle || 'Carved Fragments Triaging & Relevance Assessment'}
           </h2>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Priority Simulator Toggle */}
+          <button
+            onClick={() => setShowWeightSimulator(!showWeightSimulator)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono border transition-all flex items-center space-x-1.5 ${
+              showWeightSimulator 
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm' 
+                : 'bg-dark-950 text-zinc-400 border-zinc-700 hover:text-white'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <span>{showWeightSimulator ? 'Hide Weights Simulator' : '⚡ Priority Simulator'}</span>
+          </button>
+
+          {/* Visual Analytics Toggle */}
+          <button
+            onClick={() => setShowCharts(!showCharts)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono border transition-all flex items-center space-x-1.5 ${
+              showCharts 
+                ? 'bg-cyber-500/20 text-cyber-neon border-cyber-500/40' 
+                : 'bg-dark-950 text-zinc-400 border-zinc-700 hover:text-white'
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            <span>{showCharts ? 'Hide Visual Analytics' : 'Visual Analytics'}</span>
+          </button>
+
+          {/* Quick Decision Support Navigation */}
           {onNavigateToInvestigation && (
             <button
               onClick={onNavigateToInvestigation}
@@ -175,67 +273,91 @@ export default function DashboardScreen({
               <span>Decision Support Center →</span>
             </button>
           )}
-          <button
-            onClick={() => setShowCharts(!showCharts)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono border transition-all flex items-center space-x-1.5 ${
-              showCharts 
-                ? 'bg-cyber-500/20 text-cyber-neon border-cyber-500/40' 
-                : 'bg-dark-950 text-zinc-400 border-zinc-700 hover:text-white'
-            }`}
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            <span>{showCharts ? 'Hide Visual Analytics' : 'Show Visual Analytics'}</span>
-          </button>
         </div>
       </div>
 
-      {/* Summary Cards Grid (Conforming strictly to Spec §8) */}
+      {/* ── INTERACTIVE CATEGORY SUMMARY CARDS (Click to filter) ───────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Total Artifacts */}
-        <div className="p-3.5 rounded-xl bg-dark-900 border border-zinc-800 shadow-cyber-card">
+        <div 
+          onClick={() => setTypeFilter('All')}
+          className={`cursor-pointer p-3.5 rounded-xl transition-all border ${
+            typeFilter === 'All'
+              ? 'bg-dark-850 border-cyber-500/80 shadow-neon ring-1 ring-cyber-neon'
+              : 'bg-dark-900 border-zinc-800 hover:border-zinc-700'
+          }`}
+        >
           <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">Total Artifacts</div>
           <div className="text-2xl font-mono font-extrabold text-white mt-1">{stats.total}</div>
-          <div className="text-[10px] text-zinc-500 mt-1 font-mono">Unallocated Carves</div>
+          <div className="text-[10px] text-zinc-500 mt-1 font-mono">Click to show all</div>
         </div>
 
         {/* Documents */}
-        <div className="p-3.5 rounded-xl bg-dark-900 border border-zinc-800 shadow-cyber-card">
+        <div 
+          onClick={() => setTypeFilter(typeFilter === 'Document' ? 'All' : 'Document')}
+          className={`cursor-pointer p-3.5 rounded-xl transition-all border ${
+            typeFilter === 'Document'
+              ? 'bg-blue-950/40 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.3)] ring-1 ring-blue-400'
+              : 'bg-dark-900 border-zinc-800 hover:border-blue-500/40'
+          }`}
+        >
           <div className="text-[11px] font-mono text-blue-400 uppercase tracking-wider flex items-center space-x-1">
             <FileText className="w-3 h-3" />
             <span>Documents</span>
           </div>
           <div className="text-2xl font-mono font-extrabold text-white mt-1">{stats.docs}</div>
-          <div className="text-[10px] text-zinc-500 mt-1 font-mono">PDF, DOCX, TXT</div>
+          <div className="text-[10px] text-zinc-400 mt-1 font-mono">PDF, DOCX, TXT</div>
         </div>
 
         {/* DB Logs */}
-        <div className="p-3.5 rounded-xl bg-dark-900 border border-zinc-800 shadow-cyber-card">
+        <div 
+          onClick={() => setTypeFilter(typeFilter === 'DB log' ? 'All' : 'DB log')}
+          className={`cursor-pointer p-3.5 rounded-xl transition-all border ${
+            typeFilter === 'DB log'
+              ? 'bg-emerald-950/40 border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)] ring-1 ring-emerald-400'
+              : 'bg-dark-900 border-zinc-800 hover:border-emerald-500/40'
+          }`}
+        >
           <div className="text-[11px] font-mono text-emerald-400 uppercase tracking-wider flex items-center space-x-1">
             <Database className="w-3 h-3" />
             <span>DB Logs</span>
           </div>
           <div className="text-2xl font-mono font-extrabold text-white mt-1">{stats.dbs}</div>
-          <div className="text-[10px] text-zinc-500 mt-1 font-mono">SQLite, EVTX, Wal</div>
+          <div className="text-[10px] text-zinc-400 mt-1 font-mono">SQLite, EVTX, Wal</div>
         </div>
 
         {/* Photos */}
-        <div className="p-3.5 rounded-xl bg-dark-900 border border-zinc-800 shadow-cyber-card">
+        <div 
+          onClick={() => setTypeFilter(typeFilter === 'Photos' ? 'All' : 'Photos')}
+          className={`cursor-pointer p-3.5 rounded-xl transition-all border ${
+            typeFilter === 'Photos'
+              ? 'bg-amber-950/40 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] ring-1 ring-amber-400'
+              : 'bg-dark-900 border-zinc-800 hover:border-amber-500/40'
+          }`}
+        >
           <div className="text-[11px] font-mono text-amber-400 uppercase tracking-wider flex items-center space-x-1">
             <ImageIcon className="w-3 h-3" />
             <span>Photos</span>
           </div>
           <div className="text-2xl font-mono font-extrabold text-white mt-1">{stats.photos}</div>
-          <div className="text-[10px] text-zinc-500 mt-1 font-mono">JPEG, PNG, EXIF</div>
+          <div className="text-[10px] text-zinc-400 mt-1 font-mono">JPEG, PNG, EXIF</div>
         </div>
 
         {/* System Traces */}
-        <div className="p-3.5 rounded-xl bg-dark-900 border border-zinc-800 shadow-cyber-card">
+        <div 
+          onClick={() => setTypeFilter(typeFilter === 'System trace' ? 'All' : 'System trace')}
+          className={`cursor-pointer p-3.5 rounded-xl transition-all border ${
+            typeFilter === 'System trace'
+              ? 'bg-purple-950/40 border-purple-400 shadow-[0_0_15px_rgba(192,132,252,0.3)] ring-1 ring-purple-400'
+              : 'bg-dark-900 border-zinc-800 hover:border-purple-500/40'
+          }`}
+        >
           <div className="text-[11px] font-mono text-purple-400 uppercase tracking-wider flex items-center space-x-1">
             <Terminal className="w-3 h-3" />
             <span>System Traces</span>
           </div>
           <div className="text-2xl font-mono font-extrabold text-white mt-1">{stats.traces}</div>
-          <div className="text-[10px] text-zinc-500 mt-1 font-mono">PCAP, Bin, Regf</div>
+          <div className="text-[10px] text-zinc-400 mt-1 font-mono">PCAP, PE, Regf</div>
         </div>
 
         {/* Avg Confidence */}
@@ -245,73 +367,161 @@ export default function DashboardScreen({
             <span>Avg. Confidence</span>
           </div>
           <div className="text-2xl font-mono font-extrabold text-cyber-bright mt-1">{stats.avgConf}%</div>
-          <div className="text-[10px] text-zinc-500 mt-1 font-mono">ML + Spec Accuracy</div>
+          <div className="text-[10px] text-zinc-500 mt-1 font-mono">ML + Rule Accuracy</div>
         </div>
       </div>
 
-      {/* Tier & Quality Breakdown Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="p-3 rounded-lg bg-dark-950 border border-red-500/30">
-          <span className="text-[10px] font-mono uppercase text-red-400 font-semibold">Critical Priority</span>
-          <div className="text-xl font-bold font-mono text-red-400">{stats.critical}</div>
-        </div>
+      {/* ── PRIORITY WEIGHT SIMULATOR PANEL (Interactive §4 Math Config) ── */}
+      {showWeightSimulator && (
+        <div className="p-5 rounded-xl bg-dark-950 border border-amber-500/40 shadow-2xl space-y-4 animate-fadeIn font-mono">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+            <div>
+              <div className="flex items-center space-x-2">
+                <Sliders className="w-4 h-4 text-amber-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Interactive Priority Formula Simulator (§4 Spec)
+                </h3>
+              </div>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Formula: <strong className="text-amber-300">P = w1·Integrity + w2·Relevance + w3·Recency + w4·Uniqueness - w5·Noise</strong>
+              </p>
+            </div>
 
-        <div className="p-3 rounded-lg bg-dark-950 border border-orange-500/30">
-          <span className="text-[10px] font-mono uppercase text-orange-400 font-semibold">High Priority</span>
-          <div className="text-xl font-bold font-mono text-orange-400">{stats.high}</div>
-        </div>
+            {/* Presets */}
+            <div className="flex items-center space-x-1 text-xs">
+              <span className="text-zinc-500 text-[11px] mr-1">Case Presets:</span>
+              <button
+                onClick={() => handleApplyPreset('standard')}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  activePreset === 'standard' 
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 font-bold' 
+                    : 'bg-dark-900 text-zinc-400 hover:text-white border border-zinc-800'
+                }`}
+              >
+                Standard Triage
+              </button>
+              <button
+                onClick={() => handleApplyPreset('ransomware')}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  activePreset === 'ransomware' 
+                    ? 'bg-red-500/20 text-red-300 border border-red-500/50 font-bold' 
+                    : 'bg-dark-900 text-zinc-400 hover:text-white border border-zinc-800'
+                }`}
+              >
+                Ransomware Breach
+              </button>
+              <button
+                onClick={() => handleApplyPreset('exfiltration')}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  activePreset === 'exfiltration' 
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 font-bold' 
+                    : 'bg-dark-900 text-zinc-400 hover:text-white border border-zinc-800'
+                }`}
+              >
+                IP Exfiltration
+              </button>
+            </div>
+          </div>
 
-        <div className="p-3 rounded-lg bg-dark-950 border border-amber-500/30">
-          <span className="text-[10px] font-mono uppercase text-amber-400 font-semibold">Medium Priority</span>
-          <div className="text-xl font-bold font-mono text-amber-400">{stats.medium}</div>
-        </div>
+          {/* Sliders */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
+            {/* w2 Relevance */}
+            <div className="p-3 rounded-lg bg-dark-900 border border-zinc-800 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-red-400 font-bold">w2 Relevance:</span>
+                <span className="text-white font-mono font-bold">{(activeWeights.relevance * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.60"
+                step="0.05"
+                value={activeWeights.relevance}
+                onChange={(e) => handleWeightChange('relevance', e.target.value)}
+                className="w-full accent-red-500 cursor-pointer"
+              />
+              <div className="text-[10px] text-zinc-500">IOC / keyword match weight</div>
+            </div>
 
-        <div className="p-3 rounded-lg bg-dark-950 border border-zinc-700/40">
-          <span className="text-[10px] font-mono uppercase text-zinc-400 font-semibold">Low Priority</span>
-          <div className="text-xl font-bold font-mono text-zinc-400">{stats.low}</div>
-        </div>
+            {/* w1 Integrity */}
+            <div className="p-3 rounded-lg bg-dark-900 border border-zinc-800 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-emerald-400 font-bold">w1 Integrity:</span>
+                <span className="text-white font-mono font-bold">{(activeWeights.integrity * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.60"
+                step="0.05"
+                value={activeWeights.integrity}
+                onChange={(e) => handleWeightChange('integrity', e.target.value)}
+                className="w-full accent-emerald-500 cursor-pointer"
+              />
+              <div className="text-[10px] text-zinc-500">Completeness &amp; validity</div>
+            </div>
 
-        <div className="p-3 rounded-lg bg-dark-950 border border-zinc-800">
-          <span className="text-[10px] font-mono uppercase text-amber-300 font-semibold">Corrupted / Damaged</span>
-          <div className="text-xl font-bold font-mono text-white">{stats.corrupted}</div>
-        </div>
+            {/* w3 Recency */}
+            <div className="p-3 rounded-lg bg-dark-900 border border-zinc-800 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-blue-400 font-bold">w3 Recency:</span>
+                <span className="text-white font-mono font-bold">{(activeWeights.recency * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.50"
+                step="0.05"
+                value={activeWeights.recency}
+                onChange={(e) => handleWeightChange('recency', e.target.value)}
+                className="w-full accent-blue-500 cursor-pointer"
+              />
+              <div className="text-[10px] text-zinc-500">Incident window proximity</div>
+            </div>
 
-        <div className="p-3 rounded-lg bg-dark-950 border border-zinc-800">
-          <span className="text-[10px] font-mono uppercase text-zinc-400 font-semibold">Deduplicated</span>
-          <div className="text-xl font-bold font-mono text-zinc-400">{stats.duplicates}</div>
-        </div>
-      </div>
+            {/* w4 Uniqueness */}
+            <div className="p-3 rounded-lg bg-dark-900 border border-zinc-800 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-amber-400 font-bold">w4 Uniqueness:</span>
+                <span className="text-white font-mono font-bold">{(activeWeights.uniqueness * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.05"
+                max="0.40"
+                step="0.05"
+                value={activeWeights.uniqueness}
+                onChange={(e) => handleWeightChange('uniqueness', e.target.value)}
+                className="w-full accent-amber-500 cursor-pointer"
+              />
+              <div className="text-[10px] text-zinc-500">Penalizes duplicate hashes</div>
+            </div>
 
-      {/* Optional Visual Chart Drawer */}
-      {showCharts && (
-        <div className="p-5 rounded-xl bg-dark-900 border border-zinc-800 space-y-4">
-          <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-            <BarChart2 className="w-4 h-4 text-cyber-neon" />
-            <span>Forensic Evidence Distribution by Priority Tier</span>
-          </h3>
-          <div className="h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={tierChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" stroke="#71717a" fontSize={11} fontFamily="monospace" />
-                <YAxis stroke="#71717a" fontSize={11} fontFamily="monospace" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#090e13', borderColor: '#27272a', borderRadius: '8px', fontSize: '12px' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {tierChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {/* w5 Noise Penalty */}
+            <div className="p-3 rounded-lg bg-dark-900 border border-zinc-800 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-zinc-400 font-bold">w5 Noise Penalty:</span>
+                <span className="text-white font-mono font-bold">-{(activeWeights.noisePenalty * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.00"
+                max="0.30"
+                step="0.05"
+                value={activeWeights.noisePenalty}
+                onChange={(e) => handleWeightChange('noisePenalty', e.target.value)}
+                className="w-full accent-zinc-400 cursor-pointer"
+              />
+              <div className="text-[10px] text-zinc-500">Demotes temp/cache noise</div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Filter and Sort Bar */}
+      {/* ── VIEW SWITCHER BAR & FILTER CONTROLS ─────────────────────── */}
       <div className="p-4 rounded-xl bg-dark-900 border border-zinc-800 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
@@ -319,52 +529,36 @@ export default function DashboardScreen({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Filter by Filename, Sector (0x...), Hash, or Keyword..."
+              placeholder="Search filename, sector offset (0x...), hash, or IOC..."
               className="w-full pl-9 pr-4 py-2 bg-dark-950 border border-zinc-700/80 rounded-lg text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-cyber-neon"
             />
           </div>
 
-          {/* Quick Toggles */}
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-            <button
-              onClick={() => setHideDuplicates(!hideDuplicates)}
-              className={`px-3 py-1.5 rounded-lg border transition-all ${
-                hideDuplicates 
-                  ? 'bg-zinc-800 text-cyber-neon border-cyber-500/40' 
-                  : 'bg-dark-950 text-zinc-400 border-zinc-700'
-              }`}
-            >
-              {hideDuplicates ? '✓ Duplicates Hidden' : 'Hide Duplicates'}
-            </button>
-
-            <button
-              onClick={() => setIncidentWindowOnly(!incidentWindowOnly)}
-              className={`px-3 py-1.5 rounded-lg border transition-all ${
-                incidentWindowOnly 
-                  ? 'bg-red-500/20 text-red-400 border-red-500/50' 
-                  : 'bg-dark-950 text-zinc-400 border-zinc-700'
-              }`}
-            >
-              {incidentWindowOnly ? '✓ Incident Window Only' : 'Incident Window Filter'}
-            </button>
-
-            {(searchTerm || typeFilter !== 'All' || tierFilter !== 'All' || confFilter !== 'All' || hideDuplicates || incidentWindowOnly) && (
+          {/* View Mode Switcher (Ranked Table vs 4 High-Value Groups) */}
+          <div className="flex items-center space-x-2">
+            <div className="bg-dark-950 p-1 rounded-lg border border-zinc-800 flex items-center text-xs font-mono">
               <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setTypeFilter('All');
-                  setTierFilter('All');
-                  setConfFilter('All');
-                  setHideDuplicates(false);
-                  setIncidentWindowOnly(false);
-                }}
-                className="px-2.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs flex items-center space-x-1"
-                title="Reset All Filters"
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 rounded transition-all flex items-center space-x-1.5 ${
+                  viewMode === 'table'
+                    ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <span>📋 Ranked Table View</span>
               </button>
-            )}
+              <button
+                onClick={() => setViewMode('lanes')}
+                className={`px-3 py-1.5 rounded transition-all flex items-center space-x-1.5 ${
+                  viewMode === 'lanes'
+                    ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-cyber-neon" />
+                <span>🗂️ 4 High-Value Groups</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -372,8 +566,8 @@ export default function DashboardScreen({
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800/80 text-xs font-mono">
           {/* Type Filter Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-zinc-500 mr-1 text-[11px] uppercase">Type:</span>
-            {['All', 'Document', 'DB log', 'Photos', 'System trace', 'Unknown/Fragment'].map((t) => (
+            <span className="text-zinc-500 mr-1 text-[11px] uppercase">Group:</span>
+            {['All', 'Document', 'DB log', 'Photos', 'System trace'].map((t) => (
               <button
                 key={t}
                 onClick={() => setTypeFilter(t)}
@@ -383,14 +577,14 @@ export default function DashboardScreen({
                     : 'bg-dark-950 text-zinc-400 hover:text-white border border-zinc-800'
                 }`}
               >
-                {t}
+                {t === 'All' ? 'All Groups' : t}
               </button>
             ))}
           </div>
 
           {/* Tier Filter Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-zinc-500 mr-1 text-[11px] uppercase">Tier:</span>
+            <span className="text-zinc-500 mr-1 text-[11px] uppercase">Priority:</span>
             {['All', 'Critical', 'High', 'Medium', 'Low'].map((tier) => (
               <button
                 key={tier}
@@ -404,19 +598,209 @@ export default function DashboardScreen({
                 {tier}
               </button>
             ))}
+
+            {(searchTerm || typeFilter !== 'All' || tierFilter !== 'All' || hideDuplicates || incidentWindowOnly) && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setTypeFilter('All');
+                  setTierFilter('All');
+                  setHideDuplicates(false);
+                  setIncidentWindowOnly(false);
+                }}
+                className="ml-2 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-750 text-zinc-300 text-[10px] flex items-center space-x-1"
+                title="Reset All Filters"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Artifact Table */}
-      <ArtifactTable
-        artifacts={filteredArtifacts}
-        onSelectArtifact={onSelectArtifact}
-        onOpenIntegrity={onOpenIntegrity}
-        sortField={sortField}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-      />
+      {/* ── RENDER VIEW: 4 HIGH-VALUE GROUPS (LANES) VS RANKED TABLE ─── */}
+      {viewMode === 'lanes' ? (
+        /* ── 4 HIGH-VALUE GROUPS (LANES VIEW) ────────────────────────── */
+        <div className="space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between text-xs font-mono px-1">
+            <span className="text-zinc-400 font-bold uppercase">
+              Categorized &amp; Prioritized Evidence Matrix (4 Target Forensic Groups)
+            </span>
+            <span className="text-zinc-500 text-[11px]">
+              Sorted by Priority Score within each lane
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            
+            {/* 1. DOCUMENTS LANE */}
+            <div className="rounded-xl border border-blue-500/30 bg-dark-900 overflow-hidden flex flex-col">
+              <div className="p-3 bg-dark-950 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-blue-400" />
+                  <span className="font-mono font-bold text-white text-xs">1. Documents</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-400 border border-blue-500/40">
+                  {laneGroups.documents.length} Files
+                </span>
+              </div>
+
+              <div className="p-3 space-y-2.5 overflow-y-auto max-h-[650px] scrollbar-thin flex-1">
+                {laneGroups.documents.map((art) => (
+                  <ArtifactLaneCard 
+                    key={art.id} 
+                    artifact={art} 
+                    onSelect={() => onSelectArtifact(art)}
+                    onOpenIntegrity={() => onOpenIntegrity(art)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 2. DATABASE LOGS LANE */}
+            <div className="rounded-xl border border-emerald-500/30 bg-dark-900 overflow-hidden flex flex-col">
+              <div className="p-3 bg-dark-950 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Database className="w-4 h-4 text-emerald-400" />
+                  <span className="font-mono font-bold text-white text-xs">2. Database Logs</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                  {laneGroups.dbLogs.length} Files
+                </span>
+              </div>
+
+              <div className="p-3 space-y-2.5 overflow-y-auto max-h-[650px] scrollbar-thin flex-1">
+                {laneGroups.dbLogs.map((art) => (
+                  <ArtifactLaneCard 
+                    key={art.id} 
+                    artifact={art} 
+                    onSelect={() => onSelectArtifact(art)}
+                    onOpenIntegrity={() => onOpenIntegrity(art)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 3. PHOTOS LANE */}
+            <div className="rounded-xl border border-amber-500/30 bg-dark-900 overflow-hidden flex flex-col">
+              <div className="p-3 bg-dark-950 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <ImageIcon className="w-4 h-4 text-amber-400" />
+                  <span className="font-mono font-bold text-white text-xs">3. Photos / Images</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                  {laneGroups.photos.length} Files
+                </span>
+              </div>
+
+              <div className="p-3 space-y-2.5 overflow-y-auto max-h-[650px] scrollbar-thin flex-1">
+                {laneGroups.photos.map((art) => (
+                  <ArtifactLaneCard 
+                    key={art.id} 
+                    artifact={art} 
+                    onSelect={() => onSelectArtifact(art)}
+                    onOpenIntegrity={() => onOpenIntegrity(art)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 4. SYSTEM TRACES LANE */}
+            <div className="rounded-xl border border-purple-500/30 bg-dark-900 overflow-hidden flex flex-col">
+              <div className="p-3 bg-dark-950 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  <span className="font-mono font-bold text-white text-xs">4. System Traces</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-500/20 text-purple-400 border border-purple-500/40">
+                  {laneGroups.systemTraces.length} Files
+                </span>
+              </div>
+
+              <div className="p-3 space-y-2.5 overflow-y-auto max-h-[650px] scrollbar-thin flex-1">
+                {laneGroups.systemTraces.map((art) => (
+                  <ArtifactLaneCard 
+                    key={art.id} 
+                    artifact={art} 
+                    onSelect={() => onSelectArtifact(art)}
+                    onOpenIntegrity={() => onOpenIntegrity(art)}
+                  />
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      ) : (
+        /* ── RANKED TABLE VIEW ────────────────────────────────────────── */
+        <ArtifactTable
+          artifacts={filteredArtifacts}
+          onSelectArtifact={onSelectArtifact}
+          onOpenIntegrity={onOpenIntegrity}
+          sortField={sortField}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+        />
+      )}
+
+    </div>
+  );
+}
+
+// ── SUB-COMPONENT: Artifact Card in 4-Lane Grouped View ──────────────────
+function ArtifactLaneCard({ artifact, onSelect, onOpenIntegrity }) {
+  const tierClass = getTierBadgeClass(artifact.priorityTier);
+  const confClass = getConfidenceBadgeClass(artifact.classificationConfidence);
+  const isSpoofed = artifact.antiForensicAlert || artifact.conflictDetected;
+
+  return (
+    <div 
+      onClick={onSelect}
+      className={`p-3 rounded-xl border transition-all cursor-pointer bg-dark-950/80 hover:bg-dark-850 ${
+        isSpoofed 
+          ? 'border-rose-500/50 hover:border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.2)]' 
+          : 'border-zinc-800/80 hover:border-zinc-700'
+      }`}
+    >
+      {/* Top row: ID and Priority Tier Badge */}
+      <div className="flex items-center justify-between gap-1 mb-1.5 font-mono">
+        <span className="text-[11px] text-cyber-neon font-bold">
+          {artifact.id}
+        </span>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${tierClass}`}>
+          {artifact.priorityTier} ({artifact.priorityScore.toFixed(3)})
+        </span>
+      </div>
+
+      {/* Filename & Spoof Alert */}
+      <div className="font-semibold text-white text-xs truncate" title={artifact.filename}>
+        {artifact.filename}
+      </div>
+
+      {/* Anti-forensic spoof banner if detected */}
+      {isSpoofed && (
+        <div className="mt-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-mono flex items-center space-x-1 animate-pulse">
+          <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+          <span className="truncate">Spoofed Ext: Disguised Executable</span>
+        </div>
+      )}
+
+      {/* Reason text */}
+      <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-snug">
+        {artifact.reason}
+      </p>
+
+      {/* Badges: Integrity meter & Classification Method */}
+      <div className="mt-2.5 pt-2 border-t border-zinc-900 flex items-center justify-between text-[10px] font-mono text-zinc-400">
+        <div className="flex items-center space-x-1.5">
+          <span>Integ:</span>
+          <span className="font-bold text-white">{artifact.integrity}%</span>
+        </div>
+        <div className="text-[9px] px-1.5 py-0.5 rounded bg-dark-900 border border-zinc-800 text-zinc-300">
+          {artifact.classificationExplanation?.method?.includes('Rule') ? 'Rule: Magic' : 'ML: Entropy'}
+        </div>
+      </div>
     </div>
   );
 }

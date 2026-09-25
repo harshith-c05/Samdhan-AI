@@ -46,6 +46,7 @@ export default function InvestigationCenter({
   const [selectedFragmentNode, setSelectedFragmentNode] = useState(null);
   const [actionFeedback, setActionFeedback] = useState(null);
   const [showThresholdsInfo, setShowThresholdsInfo] = useState(false);
+  const [auditTimeline, setAuditTimeline] = useState([]);
 
   // Prepare aggregated evidence items
   const evidenceList = useMemo(() => {
@@ -126,6 +127,15 @@ export default function InvestigationCenter({
     };
 
     onAddAuditLog(auditRecord);
+
+    // Update mini audit timeline in this panel
+    setAuditTimeline(prev => [{
+      id: auditRecord.id,
+      time: new Date().toLocaleTimeString(),
+      action: config.actionType,
+      file: activeItem.filename,
+      decision: activeItem.evaluation.decision,
+    }, ...prev].slice(0, 5));
   };
 
   return (
@@ -487,44 +497,51 @@ export default function InvestigationCenter({
                 </div>
               </div>
 
-              {/* 1. FILE DETAIL VIEW: EXACTLY SIX LINES (Strict Constraint §6) */}
-              <div className="p-3.5 rounded-lg bg-dark-950 border border-zinc-800">
+              {/* 1. FILE DETAIL VIEW: SIX LINES with visual confidence bars */}
+              <div className="p-3.5 rounded-lg bg-dark-950 border border-zinc-800 space-y-2">
                 <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider mb-2 font-semibold">
                   File Detail View (6 Core Metrics)
                 </div>
+                {/* Text metrics */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 text-xs font-mono">
-                  {/* Line 1: Type */}
                   <div className="flex justify-between border-b border-zinc-900 pb-1">
                     <span className="text-zinc-400">Type:</span>
                     <span className="text-white font-bold">{activeItem.type}</span>
                   </div>
-                  {/* Line 2: Fragment Ratio */}
                   <div className="flex justify-between border-b border-zinc-900 pb-1">
                     <span className="text-zinc-400">Fragment Ratio:</span>
                     <span className="text-white font-bold">{activeItem.evaluation.metrics.fragRatio}</span>
                   </div>
-                  {/* Line 3: Recovery % */}
-                  <div className="flex justify-between border-b border-zinc-900 pb-1">
-                    <span className="text-zinc-400">Recovery:</span>
-                    <span className="text-white font-bold">{activeItem.recovery_percent}%</span>
-                  </div>
-                  {/* Line 4: Integrity % */}
-                  <div className="flex justify-between border-b border-zinc-900 pb-1">
-                    <span className="text-zinc-400">Integrity:</span>
-                    <span className="text-white font-bold">{activeItem.overall_integrity}%</span>
-                  </div>
-                  {/* Line 5: Priority */}
                   <div className="flex justify-between border-b border-zinc-900 pb-1">
                     <span className="text-zinc-400">Priority:</span>
                     <span className="text-white font-bold">{activeItem.evaluation.metrics.priorityTier}</span>
                   </div>
-                  {/* Line 6: Decision */}
-                  <div className="flex justify-between border-b border-zinc-900 pb-1">
-                    <span className="text-zinc-400">Decision:</span>
-                    <span className="font-bold text-cyber-neon">{activeItem.evaluation.decision.replace('_', ' ')}</span>
-                  </div>
+                </div>
+                {/* Visual bar metrics */}
+                <div className="space-y-2 pt-1">
+                  {[
+                    { label: 'Recovery', value: activeItem.recovery_percent, color: activeItem.recovery_percent >= 80 ? '#10b981' : activeItem.recovery_percent >= 50 ? '#f59e0b' : '#ef4444' },
+                    { label: 'Integrity', value: activeItem.overall_integrity, color: activeItem.overall_integrity >= 85 ? '#10b981' : activeItem.overall_integrity >= 50 ? '#f59e0b' : '#ef4444' },
+                    { label: 'Confidence', value: (activeItem.classification_confidence ?? 0) * 100, color: '#00ff66' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="space-y-0.5">
+                      <div className="flex justify-between text-[10px] font-mono">
+                        <span className="text-zinc-400">{label}:</span>
+                        <span className="font-bold" style={{ color }}>{Math.round(value ?? 0)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-dark-900 rounded-full overflow-hidden border border-zinc-800">
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, value ?? 0)}%`, backgroundColor: color }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Decision */}
+                <div className="flex justify-between text-xs font-mono border-t border-zinc-900 pt-2">
+                  <span className="text-zinc-400">Decision:</span>
+                  <span className="font-bold text-cyber-neon">{activeItem.evaluation.decision.replace(/_/g, ' ')}</span>
                 </div>
               </div>
+
 
               {/* 2. DECISION FLOW CHECKLIST (Linear Checklist §2 & §6) */}
               <div className="space-y-1.5">
@@ -787,6 +804,38 @@ export default function InvestigationCenter({
                     </div>
                   </div>
                 )}
+
+                {/* Mini Chain-of-Custody Timeline */}
+                {auditTimeline.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-semibold flex items-center space-x-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+                      <span>Live Chain-of-Custody Events (This Session)</span>
+                    </div>
+                    <div className="rounded-lg border border-zinc-800 bg-dark-950 overflow-hidden divide-y divide-zinc-900 font-mono text-[11px]">
+                      {auditTimeline.map((entry, idx) => {
+                        let decColor = 'text-zinc-400';
+                        if (entry.decision === 'RECOVERABLE') decColor = 'text-emerald-400';
+                        else if (entry.decision === 'PARTIALLY_RECOVERABLE') decColor = 'text-amber-400';
+                        else if (entry.decision === 'NEEDS_REVIEW') decColor = 'text-amber-300';
+                        else if (entry.decision === 'UNRECOVERABLE') decColor = 'text-rose-400';
+                        return (
+                          <div key={idx} className="flex items-center justify-between px-3 py-2 hover:bg-dark-900/50">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-zinc-600 text-[9px]">{entry.time}</span>
+                              <span className="text-white font-semibold truncate max-w-[140px]">{entry.file}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 shrink-0">
+                              <span className={`text-[10px] font-bold uppercase ${decColor}`}>{entry.decision?.replace(/_/g,' ')}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[9px]">{entry.action}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
               </div>
 
             </div>

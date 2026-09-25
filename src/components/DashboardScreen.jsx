@@ -3,10 +3,10 @@ import {
   FileText, Database, Image as ImageIcon, Terminal, Binary, AlertOctagon, 
   Copy, CheckCircle, Percent, Filter, Search, RotateCcw, SlidersHorizontal, 
   Layers, BarChart2, ShieldAlert, Sliders, ChevronDown, ChevronUp, AlertTriangle,
-  ArrowRight, ExternalLink, Zap, ShieldCheck
+  ArrowRight, ExternalLink, Zap, ShieldCheck, Download
 } from 'lucide-react';
 import ArtifactTable from './ArtifactTable';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis } from 'recharts';
 import { computePriorityScore, WEIGHTS, PRIORITY_PRESETS } from '../engine/priorityEngine';
 import { getTierBadgeClass, getConfidenceBadgeClass } from '../utils/forensicUtils';
 
@@ -129,6 +129,29 @@ export default function DashboardScreen({
   const handleWeightChange = (key, val) => {
     setActivePreset('custom');
     setActiveWeights(prev => ({ ...prev, [key]: parseFloat(val) }));
+  };
+
+  // Export current filtered artifacts as CSV
+  const handleExportCSV = () => {
+    const cols = ['id','filename','type','priorityTier','priorityScore','classificationConfidence','integrity','corruption','evidenceRelevance','recoverability','duplicate'];
+    const header = cols.join(',');
+    const rows = filteredArtifacts.map(a =>
+      cols.map(c => {
+        const v = a[c];
+        if (typeof v === 'string' && v.includes(',')) return `"${v}"`;
+        return v ?? '';
+      }).join(',')
+    );
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CLASSIFICATION_EXPORT_${caseContext?.caseId || 'CASE'}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Tier distribution chart data
@@ -260,6 +283,16 @@ export default function DashboardScreen({
           >
             <BarChart2 className="w-3.5 h-3.5" />
             <span>{showCharts ? 'Hide Visual Analytics' : 'Visual Analytics'}</span>
+          </button>
+
+          {/* CSV Export */}
+          <button
+            onClick={handleExportCSV}
+            className="px-3 py-1.5 rounded-lg text-xs font-mono border transition-all flex items-center space-x-1.5 bg-dark-950 text-zinc-400 border-zinc-700 hover:text-emerald-400 hover:border-emerald-500/40"
+            title="Export classified artifacts to CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
           </button>
 
           {/* Quick Decision Support Navigation */}
@@ -514,6 +547,146 @@ export default function DashboardScreen({
               />
               <div className="text-[10px] text-zinc-500">Demotes temp/cache noise</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── RICH VISUAL ANALYTICS PANEL ──────────────────────────────── */}
+      {showCharts && (
+        <div className="p-5 rounded-xl bg-dark-950 border border-cyber-500/30 shadow-2xl space-y-5 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div className="flex items-center space-x-2">
+              <BarChart2 className="w-4 h-4 text-cyber-neon" />
+              <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">Visual Analytics — Evidence Classification Matrix</h3>
+            </div>
+            <span className="text-[10px] text-zinc-500 font-mono">{rescoredArtifacts.length} artifacts · Live rescored</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {/* Chart 1: Priority Tier Distribution */}
+            <div className="p-3 rounded-xl bg-dark-900 border border-zinc-800 space-y-2">
+              <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider font-semibold">Priority Tier Distribution</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart data={tierChartData} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+                  <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }} />
+                  <Bar dataKey="count" radius={[4,4,0,0]}>
+                    {tierChartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 2: Artifact Type Breakdown */}
+            <div className="p-3 rounded-xl bg-dark-900 border border-zinc-800 space-y-2">
+              <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider font-semibold">Artifact Type Breakdown</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart
+                  data={[
+                    { name: 'Documents', count: stats.docs, fill: '#60a5fa' },
+                    { name: 'DB Logs', count: stats.dbs, fill: '#34d399' },
+                    { name: 'Photos', count: stats.photos, fill: '#fbbf24' },
+                    { name: 'Sys Traces', count: stats.traces, fill: '#c084fc' },
+                  ]}
+                  margin={{ top: 4, right: 4, left: -20, bottom: 4 }}
+                >
+                  <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }} />
+                  <Bar dataKey="count" radius={[4,4,0,0]}>
+                    {[{ fill: '#60a5fa' }, { fill: '#34d399' }, { fill: '#fbbf24' }, { fill: '#c084fc' }].map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 3: Integrity Spread (histogram buckets) */}
+            <div className="p-3 rounded-xl bg-dark-900 border border-zinc-800 space-y-2">
+              <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider font-semibold">Integrity Score Spread</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart
+                  data={(() => {
+                    const buckets = [
+                      { range: '0-25', count: 0, fill: '#ef4444' },
+                      { range: '25-50', count: 0, fill: '#f97316' },
+                      { range: '50-75', count: 0, fill: '#eab308' },
+                      { range: '75-90', count: 0, fill: '#22d3ee' },
+                      { range: '90+', count: 0, fill: '#10b981' },
+                    ];
+                    rescoredArtifacts.forEach(a => {
+                      const v = a.overallIntegrity ?? a.integrity ?? 0;
+                      if (v < 25) buckets[0].count++;
+                      else if (v < 50) buckets[1].count++;
+                      else if (v < 75) buckets[2].count++;
+                      else if (v < 90) buckets[3].count++;
+                      else buckets[4].count++;
+                    });
+                    return buckets;
+                  })()}
+                  margin={{ top: 4, right: 4, left: -20, bottom: 4 }}
+                >
+                  <XAxis dataKey="range" tick={{ fill: '#71717a', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }} />
+                  <Bar dataKey="count" radius={[4,4,0,0]}>
+                    {[{ fill: '#ef4444' }, { fill: '#f97316' }, { fill: '#eab308' }, { fill: '#22d3ee' }, { fill: '#10b981' }].map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 4: Classification Confidence Histogram */}
+            <div className="p-3 rounded-xl bg-dark-900 border border-zinc-800 space-y-2">
+              <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider font-semibold">Confidence Histogram</div>
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart
+                  data={(() => {
+                    const buckets = [
+                      { range: '<70%', count: 0, fill: '#ef4444' },
+                      { range: '70-80%', count: 0, fill: '#f97316' },
+                      { range: '80-90%', count: 0, fill: '#eab308' },
+                      { range: '90-95%', count: 0, fill: '#22d3ee' },
+                      { range: '95%+', count: 0, fill: '#10b981' },
+                    ];
+                    rescoredArtifacts.forEach(a => {
+                      const c = a.classificationConfidence ?? 0;
+                      if (c < 70) buckets[0].count++;
+                      else if (c < 80) buckets[1].count++;
+                      else if (c < 90) buckets[2].count++;
+                      else if (c < 95) buckets[3].count++;
+                      else buckets[4].count++;
+                    });
+                    return buckets;
+                  })()}
+                  margin={{ top: 4, right: 4, left: -20, bottom: 4 }}
+                >
+                  <XAxis dataKey="range" tick={{ fill: '#71717a', fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }} />
+                  <Bar dataKey="count" radius={[4,4,0,0]}>
+                    {[{ fill: '#ef4444' }, { fill: '#f97316' }, { fill: '#eab308' }, { fill: '#22d3ee' }, { fill: '#10b981' }].map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Stats Summary Row */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2 border-t border-zinc-800 font-mono text-xs">
+            {[
+              { label: 'Corrupted', val: stats.corrupted, color: 'text-rose-400' },
+              { label: 'Duplicates', val: stats.duplicates, color: 'text-zinc-400' },
+              { label: 'Critical', val: stats.critical, color: 'text-red-400' },
+              { label: 'High', val: stats.high, color: 'text-orange-400' },
+              { label: 'Medium', val: stats.medium, color: 'text-amber-400' },
+              { label: 'Avg Conf', val: stats.avgConf + '%', color: 'text-cyber-neon' },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="p-2 rounded bg-dark-900 border border-zinc-800 text-center">
+                <div className={`font-bold text-sm ${color}`}>{val}</div>
+                <div className="text-zinc-500 text-[10px] uppercase">{label}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}

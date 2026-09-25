@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #06090d;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(0, 255, 102, 0.06) 0%, transparent 60%),
+      radial-gradient(circle at 90% 20%, rgba(16, 185, 129, 0.04) 0%, transparent 40%),
+      radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 28px 28px;
+    background-position: 0 0, 0 0, 0 0;
+  }
+}
+
+/* Custom forensic scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090e13;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1b2633;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00ff66;
+}
+
+/* Scanline glow effect */
+.forensic-grid {
+  background-image: linear-gradient(to right, rgba(0, 255, 102, 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 255, 102, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Glowing text */
+.text-glow {
+  text-shadow: 0 0 16px rgba(0, 255, 102, 0.4);
+}
+
+.text-glow-red {
+  text-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+}

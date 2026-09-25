@@ -1,0 +1,462 @@
+[
+  {
+    "artifact_id": "ART-001",
+    "filename": "art001_jpeg_intact.jpg",
+    "claimed_file_type": "JPEG",
+    "original_size": 1300,
+    "reconstructed_size": 1182,
+    "fragments_used": [
+      {
+        "fragment_id": "F001",
+        "offset": 0,
+        "length": 512,
+        "confidence": 0.98
+      },
+      {
+        "fragment_id": "F002",
+        "offset": 512,
+        "length": 512,
+        "confidence": 0.97
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.98,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art001_jpeg_intact.jpg"
+  },
+  {
+    "artifact_id": "ART-002",
+    "filename": "art002_jpeg_missing_tail.jpg",
+    "claimed_file_type": "JPEG",
+    "original_size": 1078,
+    "reconstructed_size": 980,
+    "fragments_used": [
+      {
+        "fragment_id": "F010",
+        "offset": 0,
+        "length": 800,
+        "confidence": 0.95
+      }
+    ],
+    "missing_ranges": [
+      {
+        "start": 800,
+        "end": 999
+      }
+    ],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.87,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art002_jpeg_missing_tail.jpg"
+  },
+  {
+    "artifact_id": "ART-003",
+    "filename": "art003_jpeg_corrupted_mid.jpg",
+    "claimed_file_type": "JPEG",
+    "original_size": 1300,
+    "reconstructed_size": 1182,
+    "fragments_used": [
+      {
+        "fragment_id": "F020",
+        "offset": 0,
+        "length": 512,
+        "confidence": 0.95
+      },
+      {
+        "fragment_id": "F021",
+        "offset": 512,
+        "length": 512,
+        "confidence": 0.61
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.82,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art003_jpeg_corrupted_mid.jpg"
+  },
+  {
+    "artifact_id": "ART-004",
+    "filename": "art004_pdf_intact.pdf",
+    "claimed_file_type": "PDF",
+    "original_size": 357,
+    "reconstructed_size": 325,
+    "fragments_used": [
+      {
+        "fragment_id": "F030",
+        "offset": 0,
+        "length": 2048,
+        "confidence": 0.99
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.99,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art004_pdf_intact.pdf"
+  },
+  {
+    "artifact_id": "ART-005",
+    "filename": "art005_pdf_damaged_obj.pdf",
+    "claimed_file_type": "PDF",
+    "original_size": 529,
+    "reconstructed_size": 481,
+    "fragments_used": [
+      {
+        "fragment_id": "F040",
+        "offset": 0,
+        "length": 1024,
+        "confidence": 0.9
+      },
+      {
+        "fragment_id": "F041",
+        "offset": 1024,
+        "length": 512,
+        "confidence": 0.72
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.85,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art005_pdf_damaged_obj.pdf"
+  },
+  {
+    "artifact_id": "ART-006",
+    "filename": "art006_pdf_missing_page.pdf",
+    "claimed_file_type": "PDF",
+    "original_size": 264,
+    "reconstructed_size": 240,
+    "fragments_used": [
+      {
+        "fragment_id": "F050",
+        "offset": 0,
+        "length": 800,
+        "confidence": 0.88
+      }
+    ],
+    "missing_ranges": [
+      {
+        "start": 800,
+        "end": 1200
+      }
+    ],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.79,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art006_pdf_missing_page.pdf"
+  },
+  {
+    "artifact_id": "ART-007",
+    "filename": "art007_docx_intact.docx",
+    "claimed_file_type": "DOCX",
+    "original_size": 939,
+    "reconstructed_size": 854,
+    "fragments_used": [
+      {
+        "fragment_id": "F060",
+        "offset": 0,
+        "length": 4096,
+        "confidence": 0.99
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.99,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art007_docx_intact.docx"
+  },
+  {
+    "artifact_id": "ART-008",
+    "filename": "art008_docx_damaged_xml.docx",
+    "claimed_file_type": "DOCX",
+    "original_size": 884,
+    "reconstructed_size": 804,
+    "fragments_used": [
+      {
+        "fragment_id": "F070",
+        "offset": 0,
+        "length": 2048,
+        "confidence": 0.85
+      },
+      {
+        "fragment_id": "F071",
+        "offset": 2048,
+        "length": 1024,
+        "confidence": 0.55
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.71,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art008_docx_damaged_xml.docx"
+  },
+  {
+    "artifact_id": "ART-009",
+    "filename": "art009_docx_broken_zip.docx",
+    "claimed_file_type": "DOCX",
+    "original_size": 236,
+    "reconstructed_size": 215,
+    "fragments_used": [
+      {
+        "fragment_id": "F080",
+        "offset": 0,
+        "length": 128,
+        "confidence": 0.6
+      }
+    ],
+    "missing_ranges": [
+      {
+        "start": 128,
+        "end": 4096
+      }
+    ],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.52,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art009_docx_broken_zip.docx"
+  },
+  {
+    "artifact_id": "ART-010",
+    "filename": "art010_sqlite_intact.db",
+    "claimed_file_type": "SQLite",
+    "original_size": 9011,
+    "reconstructed_size": 8192,
+    "fragments_used": [
+      {
+        "fragment_id": "F090",
+        "offset": 0,
+        "length": 8192,
+        "confidence": 0.99
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.99,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art010_sqlite_intact.db"
+  },
+  {
+    "artifact_id": "ART-011",
+    "filename": "art011_sqlite_damaged_page.db",
+    "claimed_file_type": "SQLite",
+    "original_size": 9011,
+    "reconstructed_size": 8192,
+    "fragments_used": [
+      {
+        "fragment_id": "F100",
+        "offset": 0,
+        "length": 4096,
+        "confidence": 0.9
+      },
+      {
+        "fragment_id": "F101",
+        "offset": 4096,
+        "length": 2048,
+        "confidence": 0.58
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.77,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art011_sqlite_damaged_page.db"
+  },
+  {
+    "artifact_id": "ART-012",
+    "filename": "art012_sqlite_missing_records.db",
+    "claimed_file_type": "SQLite",
+    "original_size": 4505,
+    "reconstructed_size": 4096,
+    "fragments_used": [
+      {
+        "fragment_id": "F110",
+        "offset": 0,
+        "length": 4096,
+        "confidence": 0.95
+      }
+    ],
+    "missing_ranges": [
+      {
+        "start": 4096,
+        "end": 8191
+      }
+    ],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.88,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art012_sqlite_missing_records.db"
+  },
+  {
+    "artifact_id": "ART-013",
+    "filename": "art013_log_complete.log",
+    "claimed_file_type": "LOG",
+    "original_size": 3518,
+    "reconstructed_size": 3199,
+    "fragments_used": [
+      {
+        "fragment_id": "F120",
+        "offset": 0,
+        "length": 2048,
+        "confidence": 0.99
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.99,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art013_log_complete.log"
+  },
+  {
+    "artifact_id": "ART-014",
+    "filename": "art014_log_missing_lines.log",
+    "claimed_file_type": "LOG",
+    "original_size": 2110,
+    "reconstructed_size": 1919,
+    "fragments_used": [
+      {
+        "fragment_id": "F130",
+        "offset": 0,
+        "length": 1200,
+        "confidence": 0.92
+      }
+    ],
+    "missing_ranges": [
+      {
+        "start": 1200,
+        "end": 1800
+      }
+    ],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.82,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art014_log_missing_lines.log"
+  },
+  {
+    "artifact_id": "ART-015",
+    "filename": "art015_log_malformed.log",
+    "claimed_file_type": "LOG",
+    "original_size": 3252,
+    "reconstructed_size": 2957,
+    "fragments_used": [
+      {
+        "fragment_id": "F140",
+        "offset": 0,
+        "length": 2048,
+        "confidence": 0.88
+      }
+    ],
+    "missing_ranges": [],
+    "header_status": "valid",
+    "reconstruction_confidence": 0.76,
+    "source_hash_sha256": null,
+    "reconstructed_hash_sha256": null,
+    "filesystem_metadata": {
+      "created": "2026-09-18T09:20:00Z",
+      "modified": "2026-09-24T10:30:00Z",
+      "accessed": null
+    },
+    "embedded_metadata": {},
+    "reconstructed_path": "C:\\Samdhan AI\\backend\\demo_data\\reconstructed\\art015_log_malformed.log"
+  }
+]

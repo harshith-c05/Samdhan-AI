@@ -32,3 +32,5 @@ __pycache__/
 env/
 venv/
 .venv/
+backend/fragment_reconstruction/output/*
+!backend/fragment_reconstruction/output/.gitkeep

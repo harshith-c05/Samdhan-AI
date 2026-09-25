@@ -67,6 +67,14 @@ try:
 except Exception as _recovery_import_err:
     log.warning("disk_recovery module not loaded: %s", _recovery_import_err)
 
+# ─── Phase-2 Fragment Reconstruction Router ──────────────────────────────────
+try:
+    from fragment_reconstruction.api import router as reconstruction_router
+    app.include_router(reconstruction_router)
+    log.info("Phase-2 fragment reconstruction router mounted at /api/reconstruction/*")
+except Exception as _reconstruction_import_err:
+    log.warning("fragment_reconstruction module not loaded: %s", _reconstruction_import_err)
+
 # ─── DB Path ─────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH  = BASE_DIR / "samdhan_integrity.db"

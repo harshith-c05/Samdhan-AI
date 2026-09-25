@@ -1,0 +1,414 @@
+{
+  "png_1_valid.png": {
+    "format": "PNG",
+    "variant": "VALID",
+    "size": 245,
+    "expected_status": "INTACT",
+    "corruptions": []
+  },
+  "png_2_header_corrupted.png": {
+    "format": "PNG",
+    "variant": "HEADER_CORRUPTED",
+    "size": 245,
+    "expected_status": "UNRECOVERABLE",
+    "corruptions": [
+      {
+        "start": 0,
+        "end": 4,
+        "type": "HEADER_CORRUPTION"
+      }
+    ]
+  },
+  "png_3_middle_corrupted.png": {
+    "format": "PNG",
+    "variant": "MIDDLE_REGION_CORRUPTED",
+    "size": 245,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 129,
+        "end": 133,
+        "type": "CORRUPTED"
+      }
+    ]
+  },
+  "png_4_truncated.png": {
+    "format": "PNG",
+    "variant": "TRUNCATED",
+    "size": 147,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 147,
+        "end": 245,
+        "type": "TRUNCATION"
+      }
+    ]
+  },
+  "png_5_trailer_damaged.png": {
+    "format": "PNG",
+    "variant": "TRAILER_DAMAGED",
+    "size": 233,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 233,
+        "end": 245,
+        "type": "MISSING_TRAILER"
+      }
+    ]
+  },
+  "png_6_checksum_corrupted.png": {
+    "format": "PNG",
+    "variant": "CHECKSUM_CORRUPTED",
+    "size": 245,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 33,
+        "end": 133,
+        "type": "CRC_FAILURE"
+      }
+    ]
+  },
+  "png_7_zero_filled.png": {
+    "format": "PNG",
+    "variant": "ZERO_FILLED_REGION",
+    "size": 501,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 81,
+        "end": 337,
+        "type": "ZERO_FILLED_REGION"
+      }
+    ]
+  },
+  "png_8_multiple_corruptions.png": {
+    "format": "PNG",
+    "variant": "MULTIPLE_CORRUPTION_REGIONS",
+    "size": 245,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 33,
+        "end": 133,
+        "type": "CRC_FAILURE"
+      },
+      {
+        "start": 133,
+        "end": 233,
+        "type": "CRC_FAILURE"
+      }
+    ]
+  },
+  "jpeg_1_valid.jpg": {
+    "format": "JPEG",
+    "variant": "VALID",
+    "size": 1927,
+    "expected_status": "INTACT",
+    "corruptions": []
+  },
+  "jpeg_2_header_corrupted.jpg": {
+    "format": "JPEG",
+    "variant": "HEADER_CORRUPTED",
+    "size": 1927,
+    "expected_status": "UNRECOVERABLE",
+    "corruptions": [
+      {
+        "start": 0,
+        "end": 4,
+        "type": "HEADER_CORRUPTION"
+      }
+    ]
+  },
+  "jpeg_3_middle_corrupted.jpg": {
+    "format": "JPEG",
+    "variant": "MIDDLE_REGION_CORRUPTED",
+    "size": 1927,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 20,
+        "end": 22,
+        "type": "CORRUPTED"
+      }
+    ]
+  },
+  "jpeg_4_truncated.jpg": {
+    "format": "JPEG",
+    "variant": "TRUNCATED",
+    "size": 1156,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 1156,
+        "end": 1927,
+        "type": "TRUNCATION"
+      }
+    ]
+  },
+  "jpeg_5_trailer_damaged.jpg": {
+    "format": "JPEG",
+    "variant": "TRAILER_DAMAGED",
+    "size": 1925,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 1925,
+        "end": 1927,
+        "type": "MISSING_TRAILER"
+      }
+    ]
+  },
+  "jpeg_6_checksum_corrupted.jpg": {
+    "format": "JPEG",
+    "variant": "CHECKSUM_CORRUPTED",
+    "size": 1927,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 22,
+        "end": 24,
+        "type": "INVALID_LENGTH"
+      }
+    ]
+  },
+  "jpeg_7_zero_filled.jpg": {
+    "format": "JPEG",
+    "variant": "ZERO_FILLED_REGION",
+    "size": 1927,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 642,
+        "end": 898,
+        "type": "ZERO_FILLED_REGION"
+      }
+    ]
+  },
+  "jpeg_8_multiple_corruptions.jpg": {
+    "format": "JPEG",
+    "variant": "MULTIPLE_CORRUPTION_REGIONS",
+    "size": 1927,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 20,
+        "end": 22,
+        "type": "INVALID_MARKER"
+      },
+      {
+        "start": 177,
+        "end": 179,
+        "type": "INVALID_MARKER"
+      }
+    ]
+  },
+  "pdf_1_valid.pdf": {
+    "format": "PDF",
+    "variant": "VALID",
+    "size": 612,
+    "expected_status": "INTACT",
+    "corruptions": []
+  },
+  "pdf_2_header_corrupted.pdf": {
+    "format": "PDF",
+    "variant": "HEADER_CORRUPTED",
+    "size": 612,
+    "expected_status": "UNRECOVERABLE",
+    "corruptions": [
+      {
+        "start": 0,
+        "end": 4,
+        "type": "HEADER_CORRUPTION"
+      }
+    ]
+  },
+  "pdf_3_middle_corrupted.pdf": {
+    "format": "PDF",
+    "variant": "MIDDLE_REGION_CORRUPTED",
+    "size": 612,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 342,
+        "end": 351,
+        "type": "CORRUPTED"
+      }
+    ]
+  },
+  "pdf_4_truncated.pdf": {
+    "format": "PDF",
+    "variant": "TRUNCATED",
+    "size": 367,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 367,
+        "end": 612,
+        "type": "TRUNCATION"
+      }
+    ]
+  },
+  "pdf_5_trailer_damaged.pdf": {
+    "format": "PDF",
+    "variant": "TRAILER_DAMAGED",
+    "size": 606,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 606,
+        "end": 612,
+        "type": "MISSING_TRAILER"
+      }
+    ]
+  },
+  "pdf_6_checksum_corrupted.pdf": {
+    "format": "PDF",
+    "variant": "CHECKSUM_CORRUPTED",
+    "size": 612,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 429,
+        "end": 433,
+        "type": "STRUCTURAL_CORRUPTION"
+      }
+    ]
+  },
+  "pdf_7_zero_filled.pdf": {
+    "format": "PDF",
+    "variant": "ZERO_FILLED_REGION",
+    "size": 612,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 204,
+        "end": 460,
+        "type": "ZERO_FILLED_REGION"
+      }
+    ]
+  },
+  "pdf_8_multiple_corruptions.pdf": {
+    "format": "PDF",
+    "variant": "MULTIPLE_CORRUPTION_REGIONS",
+    "size": 612,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 51,
+        "end": 57,
+        "type": "STRUCTURAL_CORRUPTION"
+      },
+      {
+        "start": 108,
+        "end": 114,
+        "type": "STRUCTURAL_CORRUPTION"
+      }
+    ]
+  },
+  "zip_1_valid.zip": {
+    "format": "ZIP",
+    "variant": "VALID",
+    "size": 361,
+    "expected_status": "INTACT",
+    "corruptions": []
+  },
+  "zip_2_header_corrupted.zip": {
+    "format": "ZIP",
+    "variant": "HEADER_CORRUPTED",
+    "size": 361,
+    "expected_status": "UNRECOVERABLE",
+    "corruptions": [
+      {
+        "start": 0,
+        "end": 4,
+        "type": "HEADER_CORRUPTION"
+      }
+    ]
+  },
+  "zip_3_middle_corrupted.zip": {
+    "format": "ZIP",
+    "variant": "MIDDLE_REGION_CORRUPTED",
+    "size": 361,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 14,
+        "end": 18,
+        "type": "CORRUPTED"
+      }
+    ]
+  },
+  "zip_4_truncated.zip": {
+    "format": "ZIP",
+    "variant": "TRUNCATED",
+    "size": 216,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 216,
+        "end": 361,
+        "type": "TRUNCATION"
+      }
+    ]
+  },
+  "zip_5_trailer_damaged.zip": {
+    "format": "ZIP",
+    "variant": "TRAILER_DAMAGED",
+    "size": 339,
+    "expected_status": "TRUNCATED",
+    "corruptions": [
+      {
+        "start": 339,
+        "end": 361,
+        "type": "MISSING_TRAILER"
+      }
+    ]
+  },
+  "zip_6_checksum_corrupted.zip": {
+    "format": "ZIP",
+    "variant": "CHECKSUM_CORRUPTED",
+    "size": 361,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 14,
+        "end": 18,
+        "type": "CRC_FAILURE"
+      }
+    ]
+  },
+  "zip_7_zero_filled.zip": {
+    "format": "ZIP",
+    "variant": "ZERO_FILLED_REGION",
+    "size": 617,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 120,
+        "end": 376,
+        "type": "ZERO_FILLED_REGION"
+      }
+    ]
+  },
+  "zip_8_multiple_corruptions.zip": {
+    "format": "ZIP",
+    "variant": "MULTIPLE_CORRUPTION_REGIONS",
+    "size": 361,
+    "expected_status": "PARTIALLY_DAMAGED",
+    "corruptions": [
+      {
+        "start": 14,
+        "end": 18,
+        "type": "CRC_FAILURE"
+      },
+      {
+        "start": 122,
+        "end": 126,
+        "type": "CRC_FAILURE"
+      }
+    ]
+  }
+}

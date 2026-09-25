@@ -16,7 +16,7 @@ if str(_BACKEND) not in sys.path:
 from integrity_pipeline import app
 
 client = TestClient(app)
-FIXTURE_PATH = "disk_recovery/test_fixtures/test_usb.img"
+FIXTURE_PATH = str(Path(__file__).resolve().parent.parent / "test_fixtures" / "test_usb.img")
 
 
 def test_sources_endpoint():

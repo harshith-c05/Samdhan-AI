@@ -27,11 +27,18 @@ import os
 import re
 import sqlite3
 import struct
+import sys
 import time
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_BACKEND = Path(__file__).resolve().parent
+_ROOT = _BACKEND.parent
+for p in (str(_BACKEND), str(_ROOT)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,7 +85,7 @@ except Exception as _reconstruction_import_err:
 # ─── DB Path ─────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH  = BASE_DIR / "samdhan_integrity.db"
-DEMO_DIR = BASE_DIR / "demo_data" / "reconstructed"
+DEMO_DIR = _BACKEND / "demo_data" / "reconstructed"
 
 
 
@@ -953,13 +960,35 @@ def run_pipeline(req: IntegrityRequest) -> Dict:
     validation_log.append({"stage": "MissingRegionDetector",
                             "result": {"count": len(missing_canonical), "ranges": missing_canonical}})
 
-    # Stage 6 — Corruption Detection
-    corruption_regions = detect_corruption_regions(
-        missing_canonical,
-        s4.get("suspicious_ranges", []),
-        s3.get("issues", []),
-        [],
-    )
+    # Stage 6 — Corruption Detection via Core Format-Aware Engine (Feature 02)
+    intact_regions = []
+    damaged_regions = []
+    checks = []
+    core_assessment = None
+
+    try:
+        from core.integrity_analyzer import IntegrityAnalyzer
+        analyzer = IntegrityAnalyzer()
+        core_assessment = analyzer.analyze(
+            raw,
+            artifact_id=req.artifact_id,
+            filename=req.filename,
+            claimed_format=detected_type,
+            reference_sha256=req.source_hash_sha256,
+        )
+        corruption_regions = [c.model_dump() for c in core_assessment.corruption_regions]
+        intact_regions = [r.model_dump() for r in core_assessment.intact_regions]
+        damaged_regions = [d.model_dump() for d in core_assessment.damaged_regions]
+        checks = [c.model_dump() for c in core_assessment.checks]
+    except Exception as _core_err:
+        log.warning("Core IntegrityAnalyzer fallback: %s", _core_err)
+        corruption_regions = detect_corruption_regions(
+            missing_canonical,
+            s4.get("suspicious_ranges", []),
+            s3.get("issues", []),
+            [],
+        )
+
     validation_log.append({"stage": "CorruptionDetector",
                             "result": {"regions": len(corruption_regions)}})
 
@@ -1013,6 +1042,10 @@ def run_pipeline(req: IntegrityRequest) -> Dict:
         "recoverability":            recoverability,
         "recoverability_label":      recoverability_label(recoverability),
         "corruption_regions":        corruption_regions,
+        "intact_regions":            intact_regions,
+        "damaged_regions":           damaged_regions,
+        "checks":                    checks,
+        "scores":                    core_assessment.scores.model_dump() if core_assessment else None,
         "content_test_result":       s8.get("details", {}),
         "hash_result":               s10,
         "explanation":               explanation,
@@ -1038,6 +1071,8 @@ async def health():
 
 
 @app.post("/api/integrity/analyze", status_code=202)
+@app.post("/api/assess", status_code=200)
+@app.post("/api/integrity/assess", status_code=200)
 async def analyze(req: IntegrityRequest):
     """
     Runs the full 13-stage Data Integrity & Corruption Assessment pipeline.
@@ -1070,13 +1105,17 @@ async def analyze(req: IntegrityRequest):
                  report.get("generated_at")))
 
             for region in report.get("corruption_regions", []):
+                start_val = region.get("start_offset", region.get("start", 0))
+                end_val = region.get("end_offset", region.get("end", 0))
+                conf_val = region.get("confidence", 1.0)
+                desc_val = region.get("description", region.get("reason", ""))
                 db.execute(
                     """INSERT INTO corruption_regions
                        (artifact_id, start_offset, end_offset, corruption_type, severity, confidence, description)
                        VALUES (?,?,?,?,?,?,?)""",
-                    (req.artifact_id, region["start"], region["end"],
-                     region["type"], region["severity"], region["confidence"],
-                     region.get("description", "")))
+                    (req.artifact_id, start_val, end_val,
+                     region.get("type", "UNKNOWN"), region.get("severity", "medium"),
+                     conf_val, desc_val))
 
             for stage_log in report.get("validation_log", []):
                 db.execute(

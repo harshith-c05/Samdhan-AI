@@ -59,10 +59,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ─── Phase-1 Disk Recovery Router ────────────────────────────────────────────
+try:
+    from disk_recovery.api import router as recovery_router
+    app.include_router(recovery_router)
+    log.info("Phase-1 disk recovery router mounted at /api/recovery/*")
+except Exception as _recovery_import_err:
+    log.warning("disk_recovery module not loaded: %s", _recovery_import_err)
+
 # ─── DB Path ─────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent.parent
 DB_PATH  = BASE_DIR / "samdhan_integrity.db"
 DEMO_DIR = BASE_DIR / "demo_data" / "reconstructed"
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════

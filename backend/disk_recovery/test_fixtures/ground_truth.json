@@ -1,0 +1,65 @@
+{
+  "image_sha256": "a102182b111b08a09ec5697df3e8772ade7cfdb949b6e4c5c9db65bd4e5b58df",
+  "image_size_bytes": 125952,
+  "filesystem": "FAT32",
+  "sector_size": 512,
+  "cluster_size": 4096,
+  "files": {
+    "photo1.jpg": {
+      "cluster": 3,
+      "byte_offset": 7168,
+      "size_bytes": 1022,
+      "sha256": "d94bc891e2355e8231d2ed10f8d697fc955ec1b08d492a7b7ac2043d13399929",
+      "deletion_state": "ACTIVE",
+      "allocation_state": "ALLOCATED",
+      "format": "JPEG"
+    },
+    "document.pdf": {
+      "cluster": 4,
+      "byte_offset": 11264,
+      "size_bytes": 416,
+      "sha256": "f9a9eaaadb45989174c5a94077f051e1bfef080939e5f01835f9b83f8f734a9b",
+      "deletion_state": "ACTIVE",
+      "allocation_state": "ALLOCATED",
+      "format": "PDF"
+    },
+    "archive.zip": {
+      "cluster": 5,
+      "byte_offset": 15360,
+      "size_bytes": 210,
+      "sha256": "5c3e34fbcb7600cd0e68bf0a7022004d180f9c77fab44edd687e97e339d9b3e4",
+      "deletion_state": "ACTIVE",
+      "allocation_state": "ALLOCATED",
+      "format": "ZIP"
+    },
+    "note.txt": {
+      "cluster": 6,
+      "byte_offset": 19456,
+      "size_bytes": 55,
+      "sha256": "8873adc3636ec474710faf4c549b32e9d10015501053a75f4cfc602b45cb4942",
+      "deletion_state": "ACTIVE",
+      "allocation_state": "ALLOCATED",
+      "format": "TXT"
+    },
+    "deleted_photo.jpg": {
+      "cluster": 7,
+      "byte_offset": 23552,
+      "size_bytes": 1086,
+      "sha256": "b647dd2b9c1774d1587b6f9fc407daa4e3b620493ee5037b495a66037e3ef80d",
+      "deletion_state": "DELETED_META_INTACT",
+      "allocation_state": "UNALLOCATED",
+      "format": "JPEG",
+      "note": "FAT entry freed (0x00), dir entry marked 0xE5, raw bytes intact \u2014 recoverable by carving"
+    }
+  },
+  "acceptance_checks": [
+    "disk image loaded successfully",
+    "FAT32 filesystem detected",
+    "4 allocated files discovered via metadata",
+    "1 deleted file detected via 0xE5 directory entry",
+    "unallocated clusters 8-31 identified",
+    "raw JPEG/PDF/ZIP signatures detected by carver",
+    "recovery candidates generated for all 5 files",
+    "image SHA-256 matches ground truth (source unchanged)"
+  ]
+}

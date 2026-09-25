@@ -37,6 +37,29 @@
   background: #00ff66;
 }
 
+/* Scrollbar utility class — used by modals */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1b2633 #090e13;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: #090e13;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #1b2633;
+  border-radius: 3px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #00ff66;
+}
+
 /* Scanline glow effect */
 .forensic-grid {
   background-image: linear-gradient(to right, rgba(0, 255, 102, 0.05) 1px, transparent 1px),
@@ -51,4 +74,24 @@
 
 .text-glow-red {
   text-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+}
+
+/* fadeIn animation — used by modals and screen transitions */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/* Neon glow pulse on security BLOCKED badge */
+@keyframes redGlowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+  50%       { box-shadow: 0 0 22px rgba(239, 68, 68, 0.6); }
+}
+
+.blocked-glow {
+  animation: redGlowPulse 2s ease-in-out infinite;
 }

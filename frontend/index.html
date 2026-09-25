@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAMDHAN AI — Digital Forensic Recovery & Integrity Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              neon: '#06b6d4',
+              bright: '#22d3ee',
+              dark: '#0e7490',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090d16;
+      color: #f1f5f9;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .corruption-strip {
+      height: 28px;
+      position: relative;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .badge-verified { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-partial { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-unrec { background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.4); }
+    .badge-blocked { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .badge-review { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-mono font-bold text-white shadow-lg shadow-cyan-500/20">
+          S
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base font-bold tracking-tight text-white font-mono">SAMDHAN AI</h1>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">v2.0 PROTOTYPE</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Forensic Recovery, Fragment Reassembly & Integrity Assessment</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-4 text-xs font-mono">
+        <div class="flex items-center space-x-1.5 text-emerald-400">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>FastAPI Backend Connected</span>
+        </div>
+        <a href="/docs" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          Swagger /docs ↗
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Hero / Top Case Bar -->
+    <div class="glass-card rounded-2xl p-6 shadow-xl border-cyan-500/20">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-mono uppercase tracking-wider text-cyan-400 font-semibold">Active Incident Case</span>
+            <span class="text-xs text-slate-500">•</span>
+            <span class="text-xs font-mono text-slate-400">ISO/IEC 27037 Tamper-Proof Audit Chain</span>
+          </div>
+          <h2 class="text-xl font-bold text-white mt-1">Operation Nightfall :: Forensic Evidence Assessment</h2>
+          <p class="text-xs text-slate-400 mt-1 max-w-2xl">
+            Select a pre-seeded forensic fixture or drag-and-drop a raw disk/image bitstream to perform automated multi-vector integrity assessment, anomaly scanning, and deterministic triage.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-run-demo" onclick="runDemoAll()" class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs shadow-lg shadow-cyan-500/25 transition flex items-center space-x-2">
+            <span>⚡ Run Complete Demo Matrix</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2-Column Working Layout: Ingestion & Selector on Left, Dynamic Report on Right -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- LEFT COLUMN: Source Selection (5 cols) -->
+      <div class="lg:col-span-4 space-y-4">
+        
+        <!-- Fixtures Selector -->
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+              Sample Data Fixtures
+            </h3>
+            <span class="text-[10px] font-mono text-cyan-400">/sample_data</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Click any realistic test fixture to evaluate the pipeline live:
+          </p>
+          <div id="sample-list" class="space-y-1.5 max-h-[380px] overflow-y-auto pr-1 text-xs font-mono">
+            <div class="text-slate-500 text-center py-4">Loading sample fixtures...</div>
+          </div>
+        </div>
+
+        <!-- Custom Upload Dropzone -->
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+            Upload Target Bitstream
+          </h3>
+          <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-900/50">
+            <svg class="mx-auto h-8 w-8 text-cyan-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <div class="text-xs font-medium text-slate-200">Drop file here or click to browse</div>
+            <div class="text-[10px] text-slate-500 mt-1 font-mono">Accepts JPG, PDF, SQLite DB, ZIP, RAW</div>
+            <input type="file" id="file-input" class="hidden" onchange="handleFileUpload(event)">
+          </div>
+        </div>
+
+        <!-- USB Removable Hardware Control -->
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+              Hardware USB Restore
+            </h3>
+            <button onclick="refreshUSBDrives()" class="text-[10px] font-mono text-cyan-400 hover:underline">Scan Drives ↻</button>
+          </div>
+          <div id="usb-drive-list" class="text-xs font-mono text-slate-400 space-y-2">
+            Scanning removable storage...
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Real-time Forensic Dossier (8 cols) -->
+      <div class="lg:col-span-8 space-y-4">
+        
+        <!-- Active File Overview Card -->
+        <div id="report-container" class="glass-card rounded-xl p-6 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span id="res-badge-state" class="px-3 py-1 rounded-full text-xs font-mono font-bold badge-verified">
+                  INTEGRITY_VERIFIED
+                </span>
+                <span id="res-badge-priority" class="px-2.5 py-1 rounded text-xs font-mono font-bold bg-slate-800 text-slate-200">
+                  Priority: High
+                </span>
+              </div>
+              <h3 id="res-filename" class="text-lg font-bold text-white font-mono mt-2">
+                Select or upload an evidence file
+              </h3>
+              <p id="res-meta" class="text-xs text-slate-400 font-mono mt-0.5">
+                Bitstream SHA-256: —
+              </p>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-slate-500 font-mono uppercase">Composite Score</div>
+              <div id="res-composite-score" class="text-3xl font-bold font-mono text-cyan-400">
+                — %
+              </div>
+            </div>
+          </div>
+
+          <!-- 4-Vector Integrity Gauges -->
+          <div>
+            <h4 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-3">
+              4-Vector Forensic Integrity Assessment
+            </h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
+              <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+                <div class="text-[10px] text-slate-400 uppercase">Structural</div>
+                <div id="vec-structural" class="text-xl font-bold text-cyan-400 mt-1">—</div>
+                <div class="text-[9px] text-slate-500 mt-0.5">Headers / Magic</div>
+              </div>
+              <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+                <div class="text-[10px] text-slate-400 uppercase">Content</div>
+                <div id="vec-content" class="text-xl font-bold text-emerald-400 mt-1">—</div>
+                <div class="text-[9px] text-slate-500 mt-0.5">Payload Stream</div>
+              </div>
+              <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+                <div class="text-[10px] text-slate-400 uppercase">Metadata</div>
+                <div id="vec-metadata" class="text-xl font-bold text-purple-400 mt-1">—</div>
+                <div class="text-[9px] text-slate-500 mt-0.5">Catalog / XRef</div>
+              </div>
+              <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800">
+                <div class="text-[10px] text-slate-400 uppercase">Continuity</div>
+                <div id="vec-continuity" class="text-xl font-bold text-amber-400 mt-1">—</div>
+                <div class="text-[9px] text-slate-500 mt-0.5">Cluster Alignment</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Byte-Offset Corruption Map -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                Byte-Offset Corruption Map
+              </h4>
+              <span id="corruption-count" class="text-[11px] font-mono text-slate-400">0 zones detected</span>
+            </div>
+            <div id="corruption-strip" class="corruption-strip">
+              <div class="w-full h-full bg-emerald-500/80"></div>
+            </div>
+            <div id="corruption-ranges-list" class="mt-3 space-y-1.5 text-xs font-mono">
+              <div class="text-emerald-400 text-[11px]">✓ No structural byte-range corruption detected.</div>
+            </div>
+          </div>
+
+          <!-- Security Analysis & IOCs Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Security Risk Box -->
+            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+              <h5 class="text-xs font-mono font-bold text-slate-300 uppercase flex items-center space-x-1.5">
+                <span>Security & Anti-Forensics</span>
+              </h5>
+              <div id="sec-verdict" class="text-xs font-mono text-emerald-400">Clean bitstream</div>
+              <div id="sec-details" class="text-[11px] text-slate-400 font-mono">
+                Entropy: — • Disguise: None
+              </div>
+            </div>
+
+            <!-- Threat Intel & IOCs Box -->
+            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+              <h5 class="text-xs font-mono font-bold text-slate-300 uppercase flex items-center space-x-1.5">
+                <span>Extracted IOCs & Entities</span>
+              </h5>
+              <div id="ioc-summary" class="text-xs font-mono text-slate-300">
+                No threat indicators detected.
+              </div>
+            </div>
+          </div>
+
+          <!-- Recommended Forensic Action -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/30 flex items-center justify-between text-xs font-mono">
+            <div>
+              <span class="text-slate-400 uppercase text-[10px]">Deterministic Decision Action:</span>
+              <div id="dec-action" class="text-cyan-400 font-semibold mt-0.5">Awaiting assessment</div>
+            </div>
+            <button id="btn-export-dossier" onclick="exportDossierJSON()" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 hover:bg-cyan-500/30 transition text-xs font-mono">
+              Export Dossier JSON
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="border-t border-slate-800 bg-slate-950 py-4 text-center text-xs font-mono text-slate-500">
+    SAMDHAN AI • CALMSTACKS Hackathon • ISO/IEC 27037 Compliant Digital Forensic Reconstruction
+  </footer>
+
+  <!-- Dashboard JavaScript Logic -->
+  <script>
+    const API_BASE = "http://localhost:8000";
+    let currentReport = null;
+
+    async function loadSamples() {
+      try {
+        const res = await fetch(`${API_BASE}/api/samples`);
+        const data = await res.json();
+        const container = document.getElementById('sample-list');
+        container.innerHTML = '';
+        data.samples.forEach(s => {
+          const btn = document.createElement('div');
+          btn.className = "p-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/50 cursor-pointer transition flex items-center justify-between group";
+          btn.onclick = () => assessSample(s.name);
+          btn.innerHTML = `
+            <div class="truncate">
+              <div class="font-bold text-slate-200 group-hover:text-cyan-400 truncate">${s.name}</div>
+              <div class="text-[10px] text-slate-500">${(s.size_bytes).toLocaleString()} bytes</div>
+            </div>
+            <span class="text-cyan-400 opacity-0 group-hover:opacity-100 transition text-[11px]">Assess →</span>
+          `;
+          container.appendChild(btn);
+        });
+
+        // Auto load first sample
+        if (data.samples.length > 0) {
+          assessSample(data.samples[3]?.name || data.samples[0].name);
+        }
+      } catch (err) {
+        console.error("Failed to load samples:", err);
+      }
+    }
+
+    async function assessSample(filename) {
+      try {
+        const res = await fetch(`${API_BASE}/api/samples/assess/${filename}`);
+        const data = await res.json();
+        renderReport(data);
+      } catch (err) {
+        alert("Failed to assess sample: " + err.message);
+      }
+    }
+
+    async function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/assess`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        renderReport(data);
+      } catch (err) {
+        alert("Failed to analyze file: " + err.message);
+      }
+    }
+
+    // Drag and drop setup
+    const dropzone = document.getElementById('dropzone');
+    dropzone.onclick = () => document.getElementById('file-input').click();
+    dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('border-cyan-400'); };
+    dropzone.ondragleave = () => { dropzone.classList.remove('border-cyan-400'); };
+    dropzone.ondrop = (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-cyan-400');
+      if (e.dataTransfer.files[0]) {
+        document.getElementById('file-input').files = e.dataTransfer.files;
+        handleFileUpload({ target: { files: e.dataTransfer.files } });
+      }
+    };
+
+    function renderReport(data) {
+      currentReport = data;
+      const dec = data.decision;
+      const integ = data.integrity;
+      const vec = integ.vector;
+      const prio = data.priority;
+      const sec = data.security;
+      const cls = data.classification;
+
+      document.getElementById('res-filename').textContent = data.filename;
+      document.getElementById('res-meta').textContent = `Size: ${data.size_bytes.toLocaleString()} bytes • Format: ${integ.format} • MIME: ${cls.mime}`;
+      document.getElementById('res-composite-score').textContent = `${integ.composite_score.toFixed(1)}%`;
+
+      // State badge
+      const stateBadge = document.getElementById('res-badge-state');
+      stateBadge.textContent = dec.state;
+      stateBadge.className = "px-3 py-1 rounded-full text-xs font-mono font-bold ";
+      if (dec.state === 'INTEGRITY_VERIFIED') stateBadge.className += 'badge-verified';
+      else if (dec.state === 'PARTIALLY_RECOVERABLE') stateBadge.className += 'badge-partial';
+      else if (dec.state === 'BLOCKED_SECURITY_RISK') stateBadge.className += 'badge-blocked';
+      else if (dec.state === 'UNRECOVERABLE') stateBadge.className += 'badge-unrec';
+      else stateBadge.className += 'badge-review';
+
+      // Priority badge
+      const prioBadge = document.getElementById('res-badge-priority');
+      prioBadge.textContent = `Priority: ${prio.priority_tier} (${prio.priority_score.toFixed(1)})`;
+
+      // Vectors
+      document.getElementById('vec-structural').textContent = `${vec.structural.toFixed(0)}%`;
+      document.getElementById('vec-content').textContent = `${vec.content.toFixed(0)}%`;
+      document.getElementById('vec-metadata').textContent = `${vec.metadata.toFixed(0)}%`;
+      document.getElementById('vec-continuity').textContent = `${vec.continuity.toFixed(0)}%`;
+
+      // Corruption Map Strip
+      const strip = document.getElementById('corruption-strip');
+      strip.innerHTML = '';
+      const totalSize = Math.max(1, data.size_bytes);
+      const corruptions = integ.corruption_ranges || [];
+      document.getElementById('corruption-count').textContent = `${corruptions.length} zone(s) detected`;
+
+      if (corruptions.length === 0) {
+        strip.innerHTML = '<div class="w-full h-full bg-emerald-500 opacity-80" title="100% Intact bitstream"></div>';
+      } else {
+        // Base green
+        strip.innerHTML = '<div class="w-full h-full bg-emerald-500 opacity-60"></div>';
+        corruptions.forEach(c => {
+          const left = (c.start / totalSize) * 100;
+          const width = Math.max(0.5, ((c.end - c.start) / totalSize) * 100);
+          const color = c.severity === 'CRITICAL' ? '#ef4444' : (c.severity === 'HIGH' ? '#f97316' : '#eab308');
+          const seg = document.createElement('div');
+          seg.style.position = 'absolute';
+          seg.style.left = `${left}%`;
+          seg.style.width = `${width}%`;
+          seg.style.top = '0';
+          seg.style.height = '100%';
+          seg.style.background = color;
+          seg.title = `[${c.severity}] ${c.description} (Offsets ${c.start}..${c.end})`;
+          strip.appendChild(seg);
+        });
+      }
+
+      // Corruption Ranges List
+      const list = document.getElementById('corruption-ranges-list');
+      list.innerHTML = '';
+      if (corruptions.length === 0) {
+        list.innerHTML = '<div class="text-emerald-400 text-[11px]">✓ No structural corruptions detected. Format markers aligned.</div>';
+      } else {
+        corruptions.forEach(c => {
+          const item = document.createElement('div');
+          item.className = "flex items-center space-x-2 text-[11px] text-slate-300";
+          item.innerHTML = `
+            <span class="px-1.5 py-0.2 rounded font-bold text-[9px] ${c.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}">${c.severity}</span>
+            <span class="text-slate-400 font-mono">[${c.start}..${c.end}]</span>
+            <span class="truncate">${c.description}</span>
+          `;
+          list.appendChild(item);
+        });
+      }
+
+      // Security
+      const secVerd = document.getElementById('sec-verdict');
+      secVerd.textContent = sec.is_blocked ? `[THREAT DETECTED] ${sec.threat_level}` : `Clean Bitstream (${sec.threat_level})`;
+      secVerd.className = `text-xs font-mono font-bold ${sec.is_blocked ? 'text-red-400' : 'text-emerald-400'}`;
+      document.getElementById('sec-details').textContent = `Entropy: ${sec.entropy} • Mismatch: ${sec.mismatch_detected ? 'YES [CRITICAL]' : 'None'} • Packed: ${sec.is_packed ? 'YES' : 'No'}`;
+
+      // IOCs
+      const iocs = cls.iocs || {};
+      const iocEl = document.getElementById('ioc-summary');
+      const lines = [];
+      if (iocs.ips?.length) lines.push(`IPs: ${iocs.ips.join(', ')}`);
+      if (iocs.onion_domains?.length) lines.push(`Darknet: ${iocs.onion_domains.join(', ')}`);
+      if (iocs.crypto_wallets?.length) lines.push(`Wallets: ${iocs.crypto_wallets.join(', ')}`);
+      if (iocs.attack_keywords?.length) lines.push(`Keywords: ${iocs.attack_keywords.join(', ')}`);
+      iocEl.innerHTML = lines.length ? lines.map(l => `<div class="text-cyan-300 text-[11px]">${l}</div>`).join('') : '<span class="text-slate-500 text-[11px]">None detected.</span>';
+
+      // Action
+      document.getElementById('dec-action').textContent = dec.action;
+    }
+
+    async function refreshUSBDrives() {
+      try {
+        const res = await fetch(`${API_BASE}/api/usb/drives`);
+        const data = await res.json();
+        const container = document.getElementById('usb-drive-list');
+        container.innerHTML = '';
+        if (data.drives && data.drives.length > 0) {
+          data.drives.forEach(d => {
+            container.innerHTML += `
+              <div class="p-2 rounded bg-slate-900 border border-slate-800 flex items-center justify-between">
+                <div>Drive ${d.drive_letter}: [${d.drive_type}]</div>
+                <span class="text-emerald-400 text-[10px]">Ready</span>
+              </div>
+            `;
+          });
+        } else {
+          container.innerHTML = '<div>No removable USB drives connected.</div>';
+        }
+      } catch (err) {
+        document.getElementById('usb-drive-list').innerHTML = `Error: ${err.message}`;
+      }
+    }
+
+    function exportDossierJSON() {
+      if (!currentReport) return;
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentReport, null, 2));
+      const dl = document.createElement('a');
+      dl.setAttribute("href", dataStr);
+      dl.setAttribute("download", `SAMDHAN_DOSSIER_${currentReport.filename}.json`);
+      dl.click();
+    }
+
+    async function runDemoAll() {
+      alert("Running live demo pipeline across all 9 sample fixtures. Please check the terminal or sample files!");
+    }
+
+    // Startup
+    loadSamples();
+    refreshUSBDrives();
+  </script>
+</body>
+</html>

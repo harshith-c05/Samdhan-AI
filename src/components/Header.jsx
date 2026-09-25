@@ -26,7 +26,7 @@ export default function Header({
                   SAMDHAN<span className="text-cyber-neon font-sans">.AI</span>
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 rounded">
-                  v2.4 FORENSICS
+                  v3.0 UNIFIED
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 font-mono tracking-tight hidden sm:block">
@@ -58,16 +58,11 @@ export default function Header({
               <span>2. Processing Engine</span>
             </button>
             <button
-              onClick={() => {
-                if (isAnalyzed) setCurrentScreen('dashboard');
-              }}
-              disabled={!isAnalyzed}
+              onClick={() => setCurrentScreen('dashboard')}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${
                 currentScreen === 'dashboard'
                   ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 shadow-sm'
-                  : isAnalyzed
-                  ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                  : 'text-zinc-600 cursor-not-allowed'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
               }`}
             >
               <span>3. Results Dashboard</span>
@@ -98,11 +93,11 @@ export default function Header({
             {/* AI vs Rule button */}
             <button
               onClick={onOpenAiRules}
-              title="Inspect Rule-Based vs ML Forensic Architecture"
+              title="Technical Architecture Presentation &amp; AI Models (Deliverable 03)"
               className="px-2.5 py-1.5 text-xs font-mono rounded bg-dark-850 hover:bg-dark-800 text-zinc-300 hover:text-cyber-neon border border-zinc-700/60 hover:border-cyber-500/40 transition-colors flex items-center space-x-1.5"
             >
               <Cpu className="w-3.5 h-3.5 text-cyber-neon" />
-              <span className="hidden sm:inline">AI vs Rules</span>
+              <span className="hidden sm:inline">Architecture &amp; AI</span>
             </button>
 
             {/* Audit Log button */}

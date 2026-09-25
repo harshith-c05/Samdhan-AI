@@ -41,12 +41,22 @@ export default {
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'scan': 'scan 3s ease-in-out infinite',
+        'fadeIn': 'fadeIn 0.25s ease-out both',
+        'red-glow': 'redGlowPulse 2s ease-in-out infinite',
       },
       keyframes: {
         scan: {
           '0%, 100%': { transform: 'translateY(0%)' },
           '50%': { transform: 'translateY(100%)' },
-        }
+        },
+        fadeIn: {
+          '0%':   { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        redGlowPulse: {
+          '0%, 100%': { boxShadow: '0 0 8px rgba(239, 68, 68, 0.3)' },
+          '50%':       { boxShadow: '0 0 22px rgba(239, 68, 68, 0.6)' },
+        },
       }
     },
   },

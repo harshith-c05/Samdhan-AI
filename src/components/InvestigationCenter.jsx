@@ -12,11 +12,15 @@ import {
   Search, 
   RotateCcw, 
   ShieldCheck, 
+  ShieldAlert,
   FileText, 
   Layers, 
   Info,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Usb,
+  Lock,
+  Zap
 } from 'lucide-react';
 import { 
   DECISION_STATES, 
@@ -26,6 +30,8 @@ import {
   decide,
   adaptArtifactToEvidence
 } from '../engine/decisionSupportEngine';
+import SecurityScanModal from './SecurityScanModal';
+import PendriveRestoreModal from './PendriveRestoreModal';
 
 export default function InvestigationCenter({ 
   caseContext = {}, 
@@ -34,7 +40,7 @@ export default function InvestigationCenter({
 }) {
   // Mode: Toggle between Section 6's 4-Item Core Benchmark Dataset and All Case Artifacts
   const [datasetMode, setDatasetMode] = useState('benchmark'); // 'benchmark' | 'all'
-  const [filterState, setFilterState] = useState('ALL'); // 'ALL' | 'RECOVERABLE' | 'PARTIALLY_RECOVERABLE' | 'NEEDS_REVIEW' | 'UNRECOVERABLE'
+  const [filterState, setFilterState] = useState('ALL');
   const [selectedId, setSelectedId] = useState('BENCH-001');
   const [expandedEvidence, setExpandedEvidence] = useState({
     header: true,
@@ -47,6 +53,14 @@ export default function InvestigationCenter({
   const [actionFeedback, setActionFeedback] = useState(null);
   const [showThresholdsInfo, setShowThresholdsInfo] = useState(false);
   const [auditTimeline, setAuditTimeline] = useState([]);
+
+  // Feature 6 — Security Scan Modal
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [securityModalData, setSecurityModalData] = useState(null);
+
+  // Feature 5 — Pendrive Restore Modal
+  const [showPendriveModal, setShowPendriveModal] = useState(false);
+  const [pendriveArtifact, setPendriveArtifact] = useState(null);
 
   // Prepare aggregated evidence items
   const evidenceList = useMemo(() => {
@@ -68,13 +82,14 @@ export default function InvestigationCenter({
     });
   }, [evidenceList]);
 
-  // 4 Summary counts strictly per Section 6
+  // 5 Summary counts (4 original + 1 Feature 6 BLOCKED)
   const counts = useMemo(() => {
     const summary = {
       [DECISION_STATES.RECOVERABLE]: 0,
       [DECISION_STATES.PARTIALLY_RECOVERABLE]: 0,
       [DECISION_STATES.NEEDS_REVIEW]: 0,
       [DECISION_STATES.UNRECOVERABLE]: 0,
+      [DECISION_STATES.BLOCKED_SECURITY_RISK]: 0,
     };
     evaluatedItems.forEach(i => {
       if (summary[i.evaluation.decision] !== undefined) {
@@ -106,6 +121,22 @@ export default function InvestigationCenter({
     if (!activeItem) return;
     const config = activeItem.evaluation.restoreAction;
     
+    // Feature 6: BLOCKED state — open security report, no restore
+    if (activeItem.evaluation.decision === DECISION_STATES.BLOCKED_SECURITY_RISK) {
+      setSecurityModalData({
+        verdict: activeItem.security_verdict || 'MALICIOUS',
+        reasons: activeItem.security_reasons || [],
+        declared_type: activeItem.type || 'unknown',
+        detected_header: activeItem.securityScanData?.detected_header || '—',
+        sha256: activeItem.securityScanData?.sha256 || '',
+        hash_blocklist_match: (activeItem.security_reasons || []).some(r => r.key === 'known_hash_match'),
+        entropy_whole_file: activeItem.securityScanData?.entropy_whole_file ?? null,
+        scanned_at: new Date().toISOString(),
+      });
+      setShowSecurityModal(true);
+      return;
+    }
+
     // Set immediate visual feedback
     setActionFeedback({
       message: config.feedbackText,
@@ -138,6 +169,30 @@ export default function InvestigationCenter({
     }, ...prev].slice(0, 5));
   };
 
+  // Feature 5: Open pendrive restore modal
+  const handlePendriveRestore = () => {
+    if (!activeItem) return;
+    setPendriveArtifact(activeItem);
+    setShowPendriveModal(true);
+  };
+
+  // Feature 6: Open security scan modal from badge
+  const handleOpenSecurityReport = (item) => {
+    const data = item || activeItem;
+    if (!data) return;
+    setSecurityModalData({
+      verdict: data.security_verdict || data.securityScanData?.verdict || 'CLEAN',
+      reasons: data.security_reasons || [],
+      declared_type: data.type || 'unknown',
+      detected_header: data.securityScanData?.detected_header || '—',
+      sha256: data.securityScanData?.sha256 || '',
+      hash_blocklist_match: (data.security_reasons || []).some(r => r.key === 'known_hash_match'),
+      entropy_whole_file: data.securityScanData?.entropy_whole_file ?? null,
+      scanned_at: new Date().toISOString(),
+    });
+    setShowSecurityModal(true);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn font-sans text-slate-100">
       
@@ -149,14 +204,14 @@ export default function InvestigationCenter({
               DECISION RULE ENGINE ACTIVE
             </span>
             <span className="text-xs font-mono text-zinc-400">
-              Deterministic 4-State Mapping • No ML • Explainable Triaging
+              Deterministic 5-State Mapping · Feat. Security Scan · Explainable Triaging
             </span>
           </div>
           <h1 className="text-xl font-bold text-white mt-1 font-mono tracking-tight">
             Investigative Decision Support Center
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
-            5-Second Triage Pipeline: <strong className="text-zinc-200">File → Evidence → Why → Decision → Insight → Restore</strong>
+            Pipeline: <strong className="text-zinc-200">Input → Discovery → Integrity → Classification → Security Scan → Decision → Restore</strong>
           </p>
         </div>
 
@@ -226,8 +281,8 @@ export default function InvestigationCenter({
         </div>
       </div>
 
-      {/* ── 4 SUMMARY CARDS ONLY (Hard Constraint §6) ────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── 5 SUMMARY CARDS: 4 original + BLOCKED (Feature 6) ─────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         
         {/* 1. Recoverable (🟢) */}
         <div 
@@ -325,6 +380,30 @@ export default function InvestigationCenter({
           </div>
         </div>
 
+        {/* 5. Blocked — Security Risk (Feature 6) 🛡️ */}
+        <div 
+          onClick={() => setFilterState(filterState === DECISION_STATES.BLOCKED_SECURITY_RISK ? 'ALL' : DECISION_STATES.BLOCKED_SECURITY_RISK)}
+          className={`cursor-pointer p-4 rounded-xl transition-all border ${
+            filterState === DECISION_STATES.BLOCKED_SECURITY_RISK
+              ? 'bg-red-950/50 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.4)] ring-1 ring-red-400'
+              : 'bg-dark-900 border-zinc-800 hover:border-red-500/50'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono uppercase tracking-wider text-red-400 font-semibold flex items-center space-x-1.5">
+              <Lock className="w-4 h-4 text-red-400" />
+              <span>Blocked</span>
+            </span>
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+          </div>
+          <div className="text-3xl font-extrabold font-mono text-white mt-2">
+            {counts[DECISION_STATES.BLOCKED_SECURITY_RISK]}
+          </div>
+          <div className="text-[11px] text-red-400/80 mt-1 font-mono">
+            Malicious — security risk
+          </div>
+        </div>
+
       </div>
 
       {/* ── Main Layout: Table on Left/Top, Detail Inspector on Right ── */}
@@ -379,7 +458,13 @@ export default function InvestigationCenter({
                     } else if (dec === DECISION_STATES.UNRECOVERABLE) {
                       decBadge = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
                       decDot = 'bg-rose-400';
+                    } else if (dec === DECISION_STATES.BLOCKED_SECURITY_RISK) {
+                      decBadge = 'bg-red-600/20 text-red-400 border-red-500/50';
+                      decDot = 'bg-red-400 animate-pulse';
                     }
+
+                    const isSuspicious = item.evaluation.isSuspicious;
+                    const isUSBSource = item.source_type === 'usb';
 
                     // Priority color
                     const pTier = item.evaluation.metrics.priorityTier;
@@ -404,10 +489,18 @@ export default function InvestigationCenter({
                       >
                         {/* File */}
                         <td className="py-2.5 px-3">
-                          <div className="font-semibold text-white truncate max-w-[140px] sm:max-w-[160px]" title={item.filename}>
+                          <div className="font-semibold text-white truncate max-w-[140px] sm:max-w-[160px] flex items-center gap-1" title={item.filename}>
                             {item.filename}
+                            {/* Feature 5: USB source badge */}
+                            {isUSBSource && (
+                              <Usb className="w-3 h-3 text-blue-400 flex-shrink-0" title="Recovered from USB" />
+                            )}
+                            {/* Feature 6: SUSPICIOUS warning dot */}
+                            {isSuspicious && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 animate-pulse" title="Security: SUSPICIOUS" />
+                            )}
                           </div>
-                          {/* Provenance Tag (§5 & §6 edge case) */}
+                          {/* Provenance Tag */}
                           <div className="text-[9px] text-zinc-500 truncate" title={item.provenance}>
                             {item.provenance === PROVENANCE_TYPES.PUBLIC_REFERENCE ? 'Public Reference' :
                              item.provenance === PROVENANCE_TYPES.DERIVED_ANALYSIS ? 'Derived Analysis' : 'Synthetic Demo'}
@@ -769,6 +862,29 @@ export default function InvestigationCenter({
                       </button>
                     )}
 
+                    {/* Feature 5: Pendrive restore button (RECOVERABLE or PARTIALLY_RECOVERABLE) */}
+                    {activeItem.evaluation.restoreAction.pendriveAllowed && (
+                      <button
+                        onClick={handlePendriveRestore}
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-blue-600/25 hover:bg-blue-600/40 border border-blue-500/60 text-blue-300 font-mono font-semibold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                        title="Restore to USB/Pendrive (Feature 5)"
+                      >
+                        <Usb className="w-4 h-4" />
+                        <span>{activeItem.evaluation.restoreAction.pendriveButtonLabel || 'RESTORE TO PENDRIVE'}</span>
+                      </button>
+                    )}
+
+                    {/* Feature 6: BLOCKED — only VIEW SECURITY REPORT */}
+                    {activeItem.evaluation.restoreAction.buttonStyle === 'blocked' && (
+                      <button
+                        onClick={handleExecuteAction}
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-red-600/25 hover:bg-red-600/40 border border-red-500/70 text-red-300 font-mono font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer"
+                      >
+                        <ShieldAlert className="w-4 h-4" />
+                        <span>{activeItem.evaluation.restoreAction.buttonLabel}</span>
+                      </button>
+                    )}
+
                     {activeItem.evaluation.restoreAction.buttonStyle === 'review' && (
                       <button
                         onClick={handleExecuteAction}
@@ -788,6 +904,19 @@ export default function InvestigationCenter({
                         <span>{activeItem.evaluation.restoreAction.buttonLabel}</span>
                       </button>
                     )}
+
+                    {/* Feature 6: SUSPICIOUS badge inline with action row */}
+                    {activeItem.evaluation.isSuspicious && (
+                      <button
+                        onClick={() => handleOpenSecurityReport(activeItem)}
+                        className="w-full sm:w-auto px-3 py-2 rounded-lg bg-amber-950/50 border border-amber-600/60 text-amber-300 font-mono text-xs flex items-center justify-center space-x-1.5 hover:bg-amber-950/80 transition-colors"
+                        title="View security scan — SUSPICIOUS signals detected"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>SUSPICIOUS — View Scan</span>
+                      </button>
+                    )}
+
                   </div>
                 </div>
 
@@ -819,6 +948,7 @@ export default function InvestigationCenter({
                         else if (entry.decision === 'PARTIALLY_RECOVERABLE') decColor = 'text-amber-400';
                         else if (entry.decision === 'NEEDS_REVIEW') decColor = 'text-amber-300';
                         else if (entry.decision === 'UNRECOVERABLE') decColor = 'text-rose-400';
+                        else if (entry.decision === 'BLOCKED_SECURITY_RISK') decColor = 'text-red-400';
                         return (
                           <div key={idx} className="flex items-center justify-between px-3 py-2 hover:bg-dark-900/50">
                             <div className="flex items-center space-x-2">
@@ -836,18 +966,36 @@ export default function InvestigationCenter({
                   </div>
                 )}
 
-              </div>
+             </div>
 
-            </div>
-          ) : (
-            <div className="p-8 rounded-xl bg-dark-900 border border-zinc-800 text-center font-mono text-zinc-500">
-              Select an artifact from the table to view the 5-second investigative decision breakdown.
-            </div>
-          )}
-        </div>
+           </div>
+         ) : (
+           <div className="p-8 rounded-xl bg-dark-900 border border-zinc-800 text-center font-mono text-zinc-500">
+             Select an artifact from the table to view the 5-second investigative decision breakdown.
+           </div>
+         )}
+       </div>
 
-      </div>
+     </div>
 
-    </div>
-  );
+     {/* Feature 6 — Security Scan Report Modal */}
+     {showSecurityModal && securityModalData && activeItem && (
+       <SecurityScanModal
+         artifact={activeItem}
+         scanResult={securityModalData}
+         onClose={() => { setShowSecurityModal(false); setSecurityModalData(null); }}
+       />
+     )}
+
+     {/* Feature 5 — Pendrive Restore Modal */}
+     {showPendriveModal && pendriveArtifact && (
+       <PendriveRestoreModal
+         artifact={pendriveArtifact}
+         onClose={() => { setShowPendriveModal(false); setPendriveArtifact(null); }}
+         onAddAuditLog={onAddAuditLog}
+       />
+     )}
+
+   </div>
+ );
 }

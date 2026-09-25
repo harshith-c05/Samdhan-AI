@@ -6,7 +6,7 @@
  *                         ↓
  *                 Evidence Aggregator (join on artifact_id)
  *                         ↓
- *                 Decision Rule Engine (deterministic 4-state mapping)
+ *                 Decision Rule Engine (deterministic 5-state mapping — F6 adds BLOCKED_SECURITY_RISK)
  *                         ↓
  *       ┌─────────────────┼───────────────────┐
  *       ↓                 ↓                   ↓
@@ -30,6 +30,15 @@ export const DECISION_STATES = Object.freeze({
   PARTIALLY_RECOVERABLE: 'PARTIALLY_RECOVERABLE',
   NEEDS_REVIEW: 'NEEDS_REVIEW',
   UNRECOVERABLE: 'UNRECOVERABLE',
+  // Feature 6: Security override — MALICIOUS verdict forces this regardless of fragment/integrity
+  BLOCKED_SECURITY_RISK: 'BLOCKED_SECURITY_RISK',
+});
+
+// Feature 6 security verdict levels
+export const SECURITY_VERDICT = Object.freeze({
+  CLEAN:     'CLEAN',
+  SUSPICIOUS:'SUSPICIOUS',
+  MALICIOUS: 'MALICIOUS',
 });
 
 export const PROVENANCE_TYPES = Object.freeze({
@@ -102,6 +111,7 @@ export function aggregateEvidence(fragmentOutput = {}, integrityOutput = {}, cla
 /**
  * 2. Decision Rule Engine (§3 Decision Algorithm)
  * Deterministic mapping from aggregated evidence to one of four states.
+ * Feature 6: MALICIOUS security verdict overrides to BLOCKED_SECURITY_RISK (5th state).
  */
 export function decide(evidence) {
   const fragRatio = evidence.fragments_expected > 0 
@@ -110,6 +120,36 @@ export function decide(evidence) {
   const structureOk = evidence.structural_validity === 'valid';
   const integrity = evidence.overall_integrity; // 0-100
   const conf = evidence.classification_confidence; // 0.0 - 1.0
+
+  // ── Feature 6: Security override ─────────────────────────────────────────
+  // A MALICIOUS verdict forces the 5th state regardless of fragment completeness.
+  const securityVerdict = evidence.security_verdict || SECURITY_VERDICT.CLEAN;
+  const isSuspicious = securityVerdict === SECURITY_VERDICT.SUSPICIOUS;
+  if (securityVerdict === SECURITY_VERDICT.MALICIOUS) {
+    const reasons = [
+      { type: 'fail', text: 'SECURITY SCAN: MALICIOUS verdict — restore blocked' },
+      ...(evidence.security_reasons || []).map(r => ({ type: 'fail', text: r.text || r })),
+    ].slice(0, 5);
+    return {
+      decision: DECISION_STATES.BLOCKED_SECURITY_RISK,
+      securityVerdict,
+      isSuspicious: false,
+      reasons,
+      insights: [{ category: 'Security Block', text: 'This artifact has been flagged as MALICIOUS. No restore action is permitted. View the security report for details.' }],
+      evidencePanel: assembleEvidencePanel(evidence, DECISION_STATES.BLOCKED_SECURITY_RISK),
+      priorityExplanation: generatePriorityExplanation(evidence.priority_tier, evidence.type),
+      decisionFlow: generateDecisionFlow(evidence, DECISION_STATES.BLOCKED_SECURITY_RISK),
+      restoreAction: getRestoreActionConfig(evidence, DECISION_STATES.BLOCKED_SECURITY_RISK),
+      metrics: {
+        fragRatio: `${evidence.fragments_found} / ${evidence.fragments_expected}`,
+        recoveryPercent: evidence.recovery_percent,
+        integrityPercent: evidence.overall_integrity,
+        priorityTier: evidence.priority_tier,
+        type: evidence.type,
+        provenance: evidence.provenance,
+      }
+    };
+  }
 
   // Conflict / Edge Rule:
   // Low confidence (< 0.60) or structural validity 'uncertain' routes to NEEDS_REVIEW
@@ -136,6 +176,8 @@ export function decide(evidence) {
 
   return {
     decision,
+    securityVerdict,
+    isSuspicious,
     reasons,
     insights,
     evidencePanel,
@@ -347,14 +389,22 @@ export function assembleEvidencePanel(evidence, decision) {
 
 /**
  * 7. Decision Flow (§2 & §4)
- * Linear checklist representation:
- * `report.pdf → 4/4 fragments ✓ → Structure valid ✓ → Integrity good ✓ → RECOVERABLE`
+ * Feature 6: BLOCKED_SECURITY_RISK adds a security step to the flow.
  */
 export function generateDecisionFlow(evidence, decision) {
   const steps = [];
   const found = evidence.fragments_found;
   const expected = evidence.fragments_expected;
   const fragRatio = expected > 0 ? (found / expected) : 0;
+
+  // Security verdict step (Feature 6) — shown first when applicable
+  const sv = evidence.security_verdict;
+  if (sv && sv !== 'CLEAN') {
+    steps.push({ 
+      label: `Security scan: ${sv}`, 
+      status: sv === 'MALICIOUS' ? 'fail' : 'warn' 
+    });
+  }
 
   // Step 1: Fragment check
   if (fragRatio === 1.0) {
@@ -390,20 +440,35 @@ export function generateDecisionFlow(evidence, decision) {
   }
 
   // Final outcome
-  steps.push({ label: decision, status: decision === DECISION_STATES.RECOVERABLE ? 'pass' : (decision === DECISION_STATES.UNRECOVERABLE ? 'fail' : 'warn'), isOutcome: true });
+  const outcomeStatus = decision === DECISION_STATES.RECOVERABLE ? 'pass' 
+    : decision === DECISION_STATES.BLOCKED_SECURITY_RISK ? 'fail'
+    : decision === DECISION_STATES.UNRECOVERABLE ? 'fail' 
+    : 'warn';
+  steps.push({ label: decision, status: outcomeStatus, isOutcome: true });
 
   return steps;
 }
 
 /**
  * 8. Restore Action Configuration (§2 & §4)
- * Enforces action gating:
- * - RECOVERABLE -> full restore
- * - PARTIALLY_RECOVERABLE -> partial restore, explicitly labeled
- * - UNRECOVERABLE / NEEDS_REVIEW -> no restore button, alternative action
+ * Feature 6: BLOCKED_SECURITY_RISK offers only VIEW SECURITY REPORT, no restore.
+ * Feature 5: RECOVERABLE / PARTIALLY_RECOVERABLE offer both Download and Restore to Pendrive.
  */
 export function getRestoreActionConfig(evidence, decision) {
   const filename = evidence.filename;
+
+  // Feature 6 override — MALICIOUS
+  if (decision === DECISION_STATES.BLOCKED_SECURITY_RISK) {
+    return {
+      allowed: false,
+      actionType: 'VIEW_SECURITY_REPORT',
+      buttonLabel: 'VIEW SECURITY REPORT',
+      buttonStyle: 'blocked',
+      feedbackText: `Artifact ${evidence.id} (${filename}) is BLOCKED. Security report logged.`,
+      targetFilename: null,
+      pendriveAllowed: false,
+    };
+  }
 
   if (decision === DECISION_STATES.RECOVERABLE) {
     return {
@@ -413,6 +478,9 @@ export function getRestoreActionConfig(evidence, decision) {
       buttonStyle: 'success',
       feedbackText: `✓ File Restored — recovered_${filename}, Fragments used: ${evidence.fragments_found}/${evidence.fragments_expected}, Integrity: Valid`,
       targetFilename: `recovered_${filename}`,
+      // Feature 5: also offer pendrive restore
+      pendriveAllowed: true,
+      pendriveButtonLabel: 'RESTORE TO PENDRIVE',
     };
   }
 
@@ -424,6 +492,9 @@ export function getRestoreActionConfig(evidence, decision) {
       buttonStyle: 'warning',
       feedbackText: `✓ Partial File Restored — partial_${filename}, Fragments used: ${evidence.fragments_found}/${evidence.fragments_expected}, Notice: Incomplete stream`,
       targetFilename: `partial_${filename}`,
+      // Feature 5: pendrive restore with explicit partial notice
+      pendriveAllowed: true,
+      pendriveButtonLabel: 'RESTORE PARTIAL TO PENDRIVE',
     };
   }
 
@@ -435,6 +506,7 @@ export function getRestoreActionConfig(evidence, decision) {
       buttonStyle: 'review',
       feedbackText: `Artifact ${evidence.id} flagged and dispatched to Senior Forensic Examiner Queue.`,
       targetFilename: null,
+      pendriveAllowed: false,
     };
   }
 
@@ -446,6 +518,7 @@ export function getRestoreActionConfig(evidence, decision) {
     buttonStyle: 'search',
     feedbackText: `Carver initiated unallocated slack re-scan for additional cluster fragments.`,
     targetFilename: null,
+    pendriveAllowed: false,
   };
 }
 
@@ -473,6 +546,8 @@ export const CORE_REFERENCE_DATASET = [
     classification_confidence: 0.99,
     priority_tier: 'HIGH',
     provenance: PROVENANCE_TYPES.PUBLIC_REFERENCE,
+    security_verdict: SECURITY_VERDICT.CLEAN,
+    security_reasons: [],
     fragmentSequence: [
       { id: 'Frag-1', name: 'Header (%PDF-1.7)', offset: '0x00010000', status: 'Found', position: 'Valid', relationship: 'Strong (Sequential)' },
       { id: 'Frag-2', name: 'Catalog & Pages', offset: '0x00010800', status: 'Found', position: 'Valid', relationship: 'Strong (Pointer Match)' },
@@ -495,6 +570,8 @@ export const CORE_REFERENCE_DATASET = [
     classification_confidence: 0.96,
     priority_tier: 'MEDIUM',
     provenance: PROVENANCE_TYPES.SYNTHETIC_DEMO,
+    security_verdict: SECURITY_VERDICT.CLEAN,
+    security_reasons: [],
     fragmentSequence: [
       { id: 'Frag-A', name: 'SOI & EXIF (FF D8)', offset: '0x00020000', status: 'Found', position: 'Valid', relationship: 'Strong (Header)' },
       { id: 'Frag-B', name: 'Huffman Tables', offset: '0x00020400', status: 'Found', position: 'Valid', relationship: 'Strong (DHT Link)' },
@@ -520,6 +597,8 @@ export const CORE_REFERENCE_DATASET = [
     classification_confidence: 0.54, // below 60% threshold
     priority_tier: 'HIGH',
     provenance: PROVENANCE_TYPES.DERIVED_ANALYSIS,
+    security_verdict: SECURITY_VERDICT.CLEAN,
+    security_reasons: [],
     fragmentSequence: [
       { id: 'Page-0', name: 'SQLite Header & Schema', offset: '0x00030000', status: 'Found', position: 'Valid', relationship: 'Strong (Magic 100B)' },
       { id: 'Page-1', name: 'B-Tree Table Leaf (auth)', offset: '0x00031000', status: 'Found', position: 'Valid', relationship: 'Strong (Pointer)' },
@@ -544,6 +623,8 @@ export const CORE_REFERENCE_DATASET = [
     classification_confidence: 0.92,
     priority_tier: 'LOW',
     provenance: PROVENANCE_TYPES.SYNTHETIC_DEMO,
+    security_verdict: SECURITY_VERDICT.CLEAN,
+    security_reasons: [],
     fragmentSequence: [
       { id: 'Zip-1', name: 'Local File Header 1', offset: '0x00040000', status: 'Found', position: 'Valid', relationship: 'Strong (PK 03 04)' },
       { id: 'Zip-2', name: 'Compressed Deflate Stream', offset: '0x00040800', status: 'Found', position: 'Truncated', relationship: 'Discontinuous' },
@@ -552,6 +633,71 @@ export const CORE_REFERENCE_DATASET = [
       { id: 'Zip-5', name: 'Central Directory Header', offset: '0x00042000', status: 'Missing', position: 'Incomplete', relationship: 'Lost (Critical)' },
       { id: 'Zip-6', name: 'Central Directory 2', offset: '0x00042800', status: 'Missing', position: 'Incomplete', relationship: 'Lost' },
       { id: 'Zip-7', name: 'End of Central Directory (EOCD)', offset: '0x00043000', status: 'Missing', position: 'Incomplete', relationship: 'Lost (Critical)' },
+    ],
+  },
+  // ── Feature 6 Fixture: invoice.jpg — disguised Windows PE executable ─────────
+  {
+    id: 'BENCH-005',
+    filename: 'invoice.jpg',
+    type: 'Photo',
+    fragments_found: 4,
+    fragments_expected: 4,
+    recovery_percent: 96,
+    overall_integrity: 94,
+    structural_integrity: 90,
+    content_integrity: 88,
+    metadata_integrity: 92,
+    structural_validity: 'valid',
+    classification_confidence: 0.91,
+    priority_tier: 'HIGH',
+    provenance: PROVENANCE_TYPES.SYNTHETIC_DEMO,
+    // Feature 6: Security verdict — MALICIOUS (MZ header + hash blocklist + high entropy)
+    security_verdict: SECURITY_VERDICT.MALICIOUS,
+    security_reasons: [
+      { key: 'extension_signature_mismatch', text: '✗ File claims to be a JPEG (.jpg) but header is MZ (Windows PE executable)' },
+      { key: 'known_hash_match',             text: '✗ SHA-256 matches known-malicious hash list [DEMO blocklist]' },
+      { key: 'high_entropy_packed',          text: '⚠ High entropy (7.94 bits/byte) — consistent with packed/obfuscated binary' },
+    ],
+    // Raw security scan data (mirrors backend response)
+    securityScanData: {
+      detected_header: '4D5A (MZ — Windows PE)',
+      declared_type:   'image/jpeg',
+      sha256:          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      entropy_whole_file: 7.94,
+      verdict:         'MALICIOUS',
+    },
+    fragmentSequence: [
+      { id: 'F-1', name: 'MZ Header (offset 0)', offset: '0x00050000', status: 'Found', position: 'Valid', relationship: 'Strong (MZ)' },
+      { id: 'F-2', name: 'PE Optional Header', offset: '0x00050200', status: 'Found', position: 'Valid', relationship: 'Strong' },
+      { id: 'F-3', name: '.text Section (code)', offset: '0x00050400', status: 'Found', position: 'Valid', relationship: 'Strong' },
+      { id: 'F-4', name: '.data Section (payload)', offset: '0x00051000', status: 'Found', position: 'Valid', relationship: 'Strong' },
+    ],
+  },
+  // ── Feature 5 Fixture: vacation.jpg — recovered FROM pendrive ──────────────
+  {
+    id: 'BENCH-006',
+    filename: 'vacation.jpg',
+    type: 'Photo',
+    source_type: 'usb',
+    device_label: 'SanDisk Cruzer 16GB',
+    media_path: '/data/evidence/usb_EVD-002.img',
+    fragments_found: 3,
+    fragments_expected: 3,
+    recovery_percent: 100,
+    overall_integrity: 91,
+    structural_integrity: 93,
+    content_integrity: 90,
+    metadata_integrity: 88,
+    structural_validity: 'valid',
+    classification_confidence: 0.98,
+    priority_tier: 'MEDIUM',
+    provenance: PROVENANCE_TYPES.SYNTHETIC_DEMO,
+    security_verdict: SECURITY_VERDICT.CLEAN,
+    security_reasons: [],
+    fragmentSequence: [
+      { id: 'USB-F1', name: 'SOI + EXIF Header (FF D8)', offset: '0x00001000', status: 'Found', position: 'Valid', relationship: 'Strong (USB Sector 2)' },
+      { id: 'USB-F2', name: 'Image Data (scanlines 1–48)', offset: '0x00002000', status: 'Found', position: 'Valid', relationship: 'Strong (Gap bridged)' },
+      { id: 'USB-F3', name: 'Remaining scanlines + EOI', offset: '0x00004000', status: 'Found', position: 'Valid', relationship: 'Strong (Terminal FF D9)' },
     ],
   },
 ];
@@ -592,7 +738,11 @@ export function adaptArtifactToEvidence(artifact) {
 
   const recoveryPercent = Math.round((fragmentsFound / fragmentsExpected) * 100);
 
-  return aggregateEvidence(
+  // Feature 6: forward security signals from general artifact data if present
+  const securityVerdict = artifact.security_verdict || artifact.securityVerdict || SECURITY_VERDICT.CLEAN;
+  const securityReasons = artifact.security_reasons || artifact.securityReasons || [];
+
+  const base = aggregateEvidence(
     {
       id: artifact.id,
       filename: artifact.filename,
@@ -628,4 +778,15 @@ export function adaptArtifactToEvidence(artifact) {
       metadata: artifact.metadata,
     }
   );
+
+  // Merge Feature 5/6 fields
+  return {
+    ...base,
+    security_verdict: securityVerdict,
+    security_reasons: securityReasons,
+    securityScanData: artifact.securityScanData || null,
+    source_type: artifact.source_type || null,
+    device_label: artifact.device_label || null,
+    media_path: artifact.media_path || null,
+  };
 }

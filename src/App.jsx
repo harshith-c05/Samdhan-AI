@@ -13,8 +13,8 @@ import DEMO_ARTIFACTS, { computeDemoStats } from './data/demoArtifacts';
 import { SAMPLE_CASES, MOCK_ARTIFACTS, INITIAL_AUDIT_LOG } from './data/mockForensicData';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('input'); // 'input', 'processing', 'dashboard'
-  const [isAnalyzed, setIsAnalyzed] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState('input'); // 'input', 'processing', 'dashboard', 'investigation'
+  const [isAnalyzed, setIsAnalyzed] = useState(true);
 
   // Use the new 15-artifact demo dataset merged with mock artifacts
   const artifacts = [...DEMO_ARTIFACTS, ...MOCK_ARTIFACTS.filter(m =>
@@ -74,8 +74,8 @@ export default function App() {
   const handleExportReport = () => {
     const stats = computeDemoStats(artifacts);
     const reportData = {
-      platform: "SAMDHAN AI — Data Integrity & Corruption Assessment v2.4",
-      module: "Integrity & Corruption Assessment (§24 PDR)",
+      platform: "SAMDHAN AI — Unified Forensic Platform v3.0",
+      module: "Features: Reconstruction · Integrity · Classification · Decision Support · USB Restore · Security Scan",
       exportTimestamp: new Date().toISOString(),
       caseContext: {
         ...caseContext,
@@ -136,9 +136,10 @@ export default function App() {
               onOpenAiRules={() => setShowAiRules(true)}
             />
 
-            {/* Input & Case Context Form */}
+            {/* Input & Case Context Form (4-Quadrant Aligned Inputs) */}
             <InputScreen
               onStartPipeline={handleStartPipeline}
+              onNavigateToDecision={() => setCurrentScreen('investigation')}
               caseContext={caseContext}
               setCaseContext={setCaseContext}
             />
@@ -176,13 +177,13 @@ export default function App() {
       <footer className="border-t border-zinc-800/80 bg-dark-950 py-6 text-center text-xs font-mono text-zinc-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-cyber-neon"></span>
-            <span>SAMDHAN AI • Data Integrity & Corruption Assessment Module v2.4</span>
+            <span className="w-2 h-2 rounded-full bg-cyber-neon animate-pulse"></span>
+            <span>SAMDHAN AI v3.0 • 6-Feature Unified Forensic Platform</span>
           </div>
           <div className="flex items-center space-x-4 text-[11px] text-zinc-400">
             <span>CALMSTACKS 24H Hackathon</span>
             <span>•</span>
-            <span>§10 Scoring · §9 Taxonomy · §11 Recoverability</span>
+            <span>Reconstruction · Integrity · Classification · Decision · USB · Security</span>
             <span>•</span>
             <button
               onClick={() => setShowAiRules(true)}

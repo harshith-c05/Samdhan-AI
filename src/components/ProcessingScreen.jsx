@@ -11,6 +11,7 @@ const STAGES = [
   { id: 4, name: 'Dedup & Fuzzy Hashing', desc: 'Cryptographic SHA-256 exact match + SSDEEP/TLSH near-duplicate clustering', icon: CopyCheck },
   { id: 5, name: 'Evidence Relevance', desc: 'spaCy NER semantic entity extraction + incident window & IOC correlation', icon: Search },
   { id: 6, name: 'Scoring & Tiering', desc: 'Multi-factor priority equation & Critical/High/Med/Low tier allocation', icon: Award },
+  { id: 7, name: 'Security Scan', desc: 'Extension/signature mismatch · Blocklist hash · Entropy · Embedded active content detection', icon: Lock },
 ];
 
 const GRID_COLS = 32;
@@ -31,7 +32,7 @@ export default function ProcessingScreen({ onComplete, totalFragments = 36, case
   const [logs, setLogs] = useState([]);
   const [isFinished, setIsFinished] = useState(false);
   const [sectorStates, setSectorStates] = useState(() => Array(TOTAL_CELLS).fill('empty'));
-  const [stageConfidences, setStageConfidences] = useState([0, 0, 0, 0, 0, 0]);
+  const [stageConfidences, setStageConfidences] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [completionStats, setCompletionStats] = useState(null);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function ProcessingScreen({ onComplete, totalFragments = 36, case
       `[INGEST] Mounted read-only loop clone: /dev/loop12 -> ${caseContext.rawImageHash?.slice(0, 16) || 'a3f9c2b1d4e7'}...`,
       `[SECURITY] Immutable SHA-256 sealed. Bit-stream verification confirmed 0 delta from source image.`,
       `[AUDIT] Investigator ${caseContext.investigator || 'System'} initiated session for ${caseContext.caseId}.`,
-      `[PIPELINE] Initializing 6-stage forensic triaging engine over ${totalFragments} unallocated fragments...`,
+      `[PIPELINE] Initializing 7-stage forensic triaging engine over ${totalFragments} unallocated fragments...`,
     ];
     setLogs(initialLogs);
 
@@ -66,7 +67,7 @@ export default function ProcessingScreen({ onComplete, totalFragments = 36, case
         return next;
       });
 
-      const newStage = Math.min(Math.floor((fragCount / totalFragments) * 6), 5);
+      const newStage = Math.min(Math.floor((fragCount / totalFragments) * 7), 6);
       if (newStage !== stageIdx) {
         stageIdx = newStage;
         setCurrentStageIndex(stageIdx);
@@ -85,11 +86,12 @@ export default function ProcessingScreen({ onComplete, totalFragments = 36, case
       else if (stageIdx === 2) logMsg = `[STAGE 3] Structural parser check: magic-bytes & header checksums validated for cluster #${fragCount}.`;
       else if (stageIdx === 3) logMsg = `[STAGE 4] SSDEEP fuzzy hash: ${fragCount}:3a8f+... compared against global cluster matrix.`;
       else if (stageIdx === 4) logMsg = `[STAGE 5] NLP Entity Matcher evaluated fragment #${fragCount} against IOCs: [${(caseContext.iocs || '192.168.1.24').slice(0, 28)}...].`;
-      else logMsg = `[STAGE 6] Multi-factor priority score synthesized for fragment #${fragCount} → Priority Assigned.`;
+      else if (stageIdx === 5) logMsg = `[STAGE 6] Multi-factor priority score synthesized for fragment #${fragCount} → Priority Assigned.`;
+      else logMsg = `[STAGE 7] Security scan: extension/signature check + entropy analysis for frag #${fragCount}. Verdict: ${Math.random() > 0.12 ? 'CLEAN' : 'SUSPICIOUS'}.`;
 
       setLogs(prev => [...prev.slice(-35), logMsg]);
 
-      if (fragCount >= totalFragments && stageIdx >= 5) {
+      if (fragCount >= totalFragments && stageIdx >= 6) {
         clearInterval(timer);
         setIsFinished(true);
         setSectorStates(prev => prev.map(s => s === 'empty' ? 'missing' : s === 'scanning' ? 'found' : s));

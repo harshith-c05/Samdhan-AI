@@ -87,6 +87,7 @@ class CorruptionRegion(BaseModel):
     """
     Localized corruption zone with exact byte offsets.
     Supports both start_offset/end_offset and start/end for client compatibility.
+    Phase 2: Adds validator, expected, actual, recoverability_impact, evidence, provenance, and underlying_findings.
     """
     start_offset: int
     end_offset: int
@@ -94,6 +95,15 @@ class CorruptionRegion(BaseModel):
     type: str
     reason: str = ""
     severity: str = "medium"
+
+    # Phase 2 enriched diagnostic fields
+    validator: str = ""
+    expected: str = ""
+    actual: str = ""
+    recoverability_impact: str = ""
+    evidence: str = ""
+    provenance: Optional[Dict[str, Any]] = None
+    underlying_findings: List[Dict[str, Any]] = Field(default_factory=list)
 
     @property
     def start(self) -> int:
@@ -149,6 +159,73 @@ class DecomposedScore(BaseModel):
     overall_score: float = 100.0
 
 
+# ─── Phase 2 Specialized Models ───────────────────────────────────────────────
+
+class BlockAnalysisRecord(BaseModel):
+    """
+    Fixed / adaptive block analysis record.
+    Represents BLOCK_001 -> INTACT, BLOCK_002 -> CORRUPTED, etc.
+    """
+    block_index: int
+    offset_start: int
+    offset_end: int
+    size: int
+    sha256: str
+    entropy: float
+    zero_ratio: float
+    state: RegionClassification
+    label: str = ""
+    notes: str = ""
+
+
+class DecoderResult(BaseModel):
+    """Safe, non-modifying real decoder verification result."""
+    decoder_name: str
+    attempted: bool
+    success: bool
+    error_message: Optional[str] = None
+    error_offset: Optional[int] = None
+    partial_recovery_possible: bool = False
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ReferenceComparisonResult(BaseModel):
+    """Byte-level ground-truth comparison against reference bytes."""
+    reference_sha256: Optional[str] = None
+    match: bool = False
+    byte_match_percentage: float = 0.0
+    changed_ranges: List[Dict[str, int]] = Field(default_factory=list)
+    missing_ranges: List[Dict[str, int]] = Field(default_factory=list)
+    extra_ranges: List[Dict[str, int]] = Field(default_factory=list)
+    fuzzy_similarity: Optional[float] = None
+    fuzzy_note: Optional[str] = None
+
+
+class MLAnomalySignal(BaseModel):
+    """
+    Auxiliary explainable ML supporting anomaly signal.
+    Labeled explicitly as 'ML SUPPORTING SIGNAL' (never proof of corruption).
+    """
+    label: str = "ML SUPPORTING SIGNAL"
+    anomaly_score: float = 0.0
+    entropy_transition_score: float = 0.0
+    byte_distribution_score: float = 0.0
+    structural_failure_density: float = 0.0
+    repeated_zero_score: float = 0.0
+    findings: List[str] = Field(default_factory=list)
+    explanation: str = ""
+
+
+class DetailedSectionBreakdown(BaseModel):
+    """Format-specific breakdown answering which sections are valid, damaged, or missing."""
+    valid_sections: List[str] = Field(default_factory=list)
+    damaged_sections: List[str] = Field(default_factory=list)
+    missing_sections: List[str] = Field(default_factory=list)
+    blocking_issues: List[str] = Field(default_factory=list)
+    partial_recovery_possible: bool = False
+    recoverability_rationale: str = ""
+
+
 # ─── Master Output Model ──────────────────────────────────────────────────────
 
 class IntegrityAssessment(BaseModel):
@@ -171,3 +248,11 @@ class IntegrityAssessment(BaseModel):
     recoverability: RecoverabilityAssessment
     scores: DecomposedScore
     evidence: List[str] = Field(default_factory=list)
+
+    # Phase 2 enriched forensic outputs
+    blocks: List[BlockAnalysisRecord] = Field(default_factory=list)
+    decoder: Optional[DecoderResult] = None
+    reference_comparison: Optional[ReferenceComparisonResult] = None
+    ml_signal: Optional[MLAnomalySignal] = None
+    section_breakdown: Optional[DetailedSectionBreakdown] = None
+

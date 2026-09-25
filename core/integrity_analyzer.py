@@ -10,35 +10,49 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from core.block_analyzer import analyze_blocks
 from core.byte_analyzer import analyze_byte_stream, calculate_hashes
+from core.corruption_boundaries import merge_adjacent_corruption_boundaries
+from core.decoder_validator import validate_decoder
+from core.ml_signal import compute_ml_supporting_signal
 from core.models import (
+    BlockAnalysisRecord,
     CheckStatus,
     CorruptionRegion,
     CorruptionType,
+    DecoderResult,
     DecomposedScore,
+    DetailedSectionBreakdown,
     HashVerificationResult,
     HashVerificationStatus,
     IntegrityAssessment,
     IntegrityStatus,
+    MLAnomalySignal,
     RecoverabilityAssessment,
     RecoverabilityClassification,
+    ReferenceComparisonResult,
     RegionClassification,
     StructuralCheck,
 )
 from core.range_partitioner import partition_byte_ranges
+from core.reference_comparator import compare_with_reference
+from core.section_analyzer import analyze_sections
 from core.signature_registry import verify_signature
 from core.validators import get_validator_for_format
 
 
 class IntegrityAnalyzer:
     """
-    Forensic Data Integrity & Corruption Assessment Analyzer.
+    Forensic Data Integrity & Corruption Assessment Analyzer (Phase 1 & Phase 2).
     
     Guarantees:
     - Source artifacts are strictly READ-ONLY (never altered, repaired, or overwritten)
     - Byte-level offset localization (never fabricated)
     - Decomposed, transparent scoring (never opaque single percentages)
     - Courtroom-defensible chain of evidence
+    - Deep format-specific chunk analysis & real decoder verification
+    - Block-level state tracking (BLOCK_001 -> INTACT, etc.)
+    - Explainable ML supporting signals
     """
 
     def analyze(
@@ -48,17 +62,23 @@ class IntegrityAnalyzer:
         filename: Optional[str] = None,
         claimed_format: Optional[str] = None,
         reference_sha256: Optional[str] = None,
+        reference_bytes: Optional[bytes] = None,
     ) -> IntegrityAssessment:
         """
-        Executes complete 8-step forensic integrity pipeline:
+        Executes complete multi-stage forensic integrity pipeline:
         1. Input Validation & Safe Ingest (Read-Only)
         2. Pre-processing Input Hashing
         3. Byte-Level Signature Verification
         4. Format-Aware Structural Validation
         5. Deep Byte-Level & Anomaly Analysis
-        6. Reference Hash Comparison
-        7. Corruption & Intact Range Localization
-        8. Transparent Scoring & Recoverability Assessment
+        6. Real Non-Modifying Decoder Verification
+        7. Reference Comparison (whole-file & byte-range)
+        8. Corruption Localization & Range Partitioning
+        9. Corruption Boundary Merging & Provenance Tracking
+        10. Format-Specific Detailed Section Breakdown
+        11. Block-Level Analysis
+        12. Auxiliary ML Supporting Signal Generation
+        13. Transparent Scoring & Recoverability Assessment
         """
         # 1. Input Ingest
         if isinstance(artifact, (str, Path)):
@@ -117,7 +137,6 @@ class IntegrityAnalyzer:
             checksum_score = val_res.checksum_integrity
             decoder_score = val_res.decoder_integrity
         else:
-            # Fallback for unrecognized formats
             all_checks.append(StructuralCheck(
                 check="FORMAT_RECOGNITION",
                 status=CheckStatus.WARNING,
@@ -150,6 +169,7 @@ class IntegrityAnalyzer:
                 type=CorruptionType.HEADER_CORRUPTION.value,
                 reason=sig_result["conflict_details"],
                 severity="critical",
+                validator=format_name,
             ))
 
         # 5. Byte-Level & Anomaly Analysis
@@ -159,7 +179,6 @@ class IntegrityAnalyzer:
 
         # Incorporate unexpected zero-fill runs into corruption regions
         for zr in byte_analysis["zero_filled_regions"]:
-            # Only mark zero-fills as corruption if inside compressed formats
             if format_name in ("JPEG", "PNG", "ZIP", "DOCX") and zr["length"] >= 256:
                 raw_corruption_regions.append(CorruptionRegion(
                     start_offset=zr["start"],
@@ -168,20 +187,60 @@ class IntegrityAnalyzer:
                     type=CorruptionType.ZERO_FILLED_REGION.value,
                     reason=f"Zero-filled span ({zr['length']} null bytes) within compressed stream",
                     severity="medium",
+                    validator=format_name,
                 ))
 
-        # 6. Reference Hash Verification
-        if reference_sha256:
+        # 6. Real Non-Modifying Decoder Verification
+        decoder_result = validate_decoder(data, format_name=format_name, artifact_id=artifact_id)
+        if decoder_result.attempted:
+            if decoder_result.success:
+                evidence.append(f"Real decoder execution ({decoder_result.decoder_name}): SUCCESS")
+                decoder_score = 100.0
+            else:
+                evidence.append(f"Real decoder execution ({decoder_result.decoder_name}): FAILED ({decoder_result.error_message})")
+                decoder_score = 50.0 if decoder_result.partial_recovery_possible else 0.0
+
+        # 7. Reference Hash & Ground-Truth Comparison
+        ref_comparison: Optional[ReferenceComparisonResult] = None
+        if reference_bytes is not None:
+            ref_comparison = compare_with_reference(
+                candidate_bytes=data,
+                reference_bytes=reference_bytes,
+                reference_sha256=reference_sha256,
+            )
+            reference_sha256 = ref_comparison.reference_sha256
+            if ref_comparison.match:
+                hash_status = HashVerificationStatus.MATCH
+                hash_desc = f"SHA-256 matches reference hash: {reference_sha256}"
+                evidence.append("Cryptographic hash verification: MATCH")
+            else:
+                hash_status = HashVerificationStatus.MISMATCH
+                hash_desc = f"SHA-256 mismatch: computed {computed_sha256} != reference {reference_sha256}"
+                evidence.append(f"Cryptographic hash MISMATCH ({ref_comparison.byte_match_percentage}% byte match)")
+        elif reference_sha256:
             ref_clean = reference_sha256.strip().lower()
             if computed_sha256 == ref_clean:
                 hash_status = HashVerificationStatus.MATCH
                 hash_desc = f"SHA-256 matches reference hash: {ref_clean}"
                 evidence.append("Cryptographic hash verification: MATCH")
+                ref_comparison = ReferenceComparisonResult(
+                    reference_sha256=ref_clean,
+                    match=True,
+                    byte_match_percentage=100.0,
+                    fuzzy_similarity=100.0,
+                    fuzzy_note="Hash match indicates 100% identity.",
+                )
             else:
                 hash_status = HashVerificationStatus.MISMATCH
                 hash_desc = f"SHA-256 mismatch: computed {computed_sha256} != reference {ref_clean}"
                 evidence.append(f"Cryptographic hash MISMATCH (differs from reference {ref_clean[:12]}...)")
-                # Note requirement: hash mismatch proves bytes differ, does not fabricate corruption
+                ref_comparison = ReferenceComparisonResult(
+                    reference_sha256=ref_clean,
+                    match=False,
+                    byte_match_percentage=0.0,
+                    fuzzy_similarity=0.0,
+                    fuzzy_note="Hash mismatch; no reference bytes provided for detailed byte diff.",
+                )
         else:
             hash_status = HashVerificationStatus.NO_REFERENCE
             hash_desc = "No reference hash provided for comparison"
@@ -194,7 +253,7 @@ class IntegrityAnalyzer:
             description=hash_desc,
         )
 
-        # 7. Corruption Localization & Range Partitioning
+        # 8. Corruption Localization & Range Partitioning
         intact_regions, damaged_regions, consolidated_corruption = partition_byte_ranges(
             file_size=file_size,
             corruption_regions=raw_corruption_regions,
@@ -202,29 +261,60 @@ class IntegrityAnalyzer:
             known_damaged=known_damaged,
         )
 
-        total_corrupted_bytes = sum(c.length for c in consolidated_corruption)
+        # 9. Adjacent Boundary Merging with Provenance & Impact
+        enriched_corruption = merge_adjacent_corruption_boundaries(
+            regions=consolidated_corruption,
+            artifact_id=artifact_id,
+            validator_name=format_name,
+        )
+
+        total_corrupted_bytes = sum(c.length for c in enriched_corruption)
         total_intact_bytes = sum(r.length for r in intact_regions)
         intact_ratio = round((total_intact_bytes / file_size), 4) if file_size > 0 else 0.0
 
-        # 8. Overall Status Determination
+        # 10. Format-Specific Detailed Section Breakdown
+        section_breakdown = analyze_sections(
+            data=data,
+            format_name=format_name,
+            checks=all_checks,
+            corruption_regions=enriched_corruption,
+        )
+
+        # 11. Block-Level Analysis
+        blocks = analyze_blocks(
+            data=data,
+            corruption_regions=enriched_corruption,
+        )
+
+        # 12. Auxiliary ML Supporting Signal
+        ml_signal = compute_ml_supporting_signal(
+            data=data,
+            format_name=format_name,
+            structural_checks=all_checks,
+            blocks=blocks,
+            corruption_regions=enriched_corruption,
+            decoder_result=decoder_result,
+        )
+
+        # 13. Overall Status Determination
         has_truncation = any(
             c.type in (CorruptionType.TRUNCATION.value, CorruptionType.MISSING_TRAILER.value)
-            for c in consolidated_corruption
+            for c in enriched_corruption
         )
         has_header_corrupt = any(
             c.type == CorruptionType.HEADER_CORRUPTION.value
-            for c in consolidated_corruption
+            for c in enriched_corruption
         )
 
-        if not consolidated_corruption and all(c.status != CheckStatus.FAIL for c in all_checks):
+        if not enriched_corruption and all(c.status != CheckStatus.FAIL for c in all_checks):
             overall_status = IntegrityStatus.INTACT
-        elif has_header_corrupt and struct_score < 20.0:
+        elif has_header_corrupt and struct_score < 20.0 and not decoder_result.partial_recovery_possible:
             overall_status = IntegrityStatus.UNRECOVERABLE
         elif has_truncation and intact_ratio > 0.40:
             overall_status = IntegrityStatus.TRUNCATED
-        elif consolidated_corruption and intact_ratio >= 0.30:
+        elif enriched_corruption and intact_ratio >= 0.30:
             overall_status = IntegrityStatus.PARTIALLY_DAMAGED
-        elif consolidated_corruption:
+        elif enriched_corruption:
             overall_status = IntegrityStatus.CORRUPTED
         elif format_name == "UNKNOWN":
             overall_status = IntegrityStatus.UNKNOWN
@@ -259,12 +349,15 @@ class IntegrityAnalyzer:
         if overall_status == IntegrityStatus.INTACT:
             rec_class = RecoverabilityClassification.FULLY_RECOVERABLE
             rec_exp = "All byte segments and structural markers intact; file is 100% usable."
-        elif overall_status in (IntegrityStatus.PARTIALLY_DAMAGED, IntegrityStatus.TRUNCATED) and intact_ratio >= 0.50:
-            rec_class = RecoverabilityClassification.PARTIALLY_RECOVERABLE
-            rec_exp = f"{intact_ratio * 100:.1f}% of byte stream remains intact; key headers parseable."
         elif overall_status == IntegrityStatus.UNRECOVERABLE:
             rec_class = RecoverabilityClassification.UNRECOVERABLE
             rec_exp = "Container headers and payload severely damaged; impossible to parse or decode."
+        elif section_breakdown.partial_recovery_possible or (decoder_result.partial_recovery_possible and intact_ratio >= 0.25):
+            rec_class = RecoverabilityClassification.PARTIALLY_RECOVERABLE
+            rec_exp = f"{intact_ratio * 100:.1f}% intact; {section_breakdown.recoverability_rationale}"
+        elif intact_ratio >= 0.50:
+            rec_class = RecoverabilityClassification.PARTIALLY_RECOVERABLE
+            rec_exp = f"{intact_ratio * 100:.1f}% of byte stream remains intact; key headers parseable."
         else:
             rec_class = RecoverabilityClassification.CORRUPTED
             rec_exp = "Structural breakdown or critical checksum failure prevents normal operation."
@@ -273,14 +366,14 @@ class IntegrityAnalyzer:
             classification=rec_class,
             intact_ratio=intact_ratio,
             recoverable_features=[r.description for r in intact_regions[:5]],
-            unrecoverable_features=[c.reason for c in consolidated_corruption[:5]],
+            unrecoverable_features=[c.reason for c in enriched_corruption[:5]],
             explanation=rec_exp,
         )
 
         # Merge evidence list
         evidence.extend(validator_evidence)
-        if consolidated_corruption:
-            for c in consolidated_corruption:
+        if enriched_corruption:
+            for c in enriched_corruption:
                 evidence.append(f"Localized corruption at [{c.start_offset}:{c.end_offset}] ({c.length} bytes): {c.reason}")
 
         return IntegrityAssessment(
@@ -290,11 +383,17 @@ class IntegrityAnalyzer:
             sha256=computed_sha256,
             overall_status=overall_status,
             checks=all_checks,
-            corruption_regions=consolidated_corruption,
+            corruption_regions=enriched_corruption,
             intact_regions=intact_regions,
             damaged_regions=damaged_regions,
             hash=hash_result,
             recoverability=recoverability,
             scores=scores,
             evidence=evidence,
+            blocks=blocks,
+            decoder=decoder_result,
+            reference_comparison=ref_comparison,
+            ml_signal=ml_signal,
+            section_breakdown=section_breakdown,
         )
+

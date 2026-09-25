@@ -1046,6 +1046,11 @@ def run_pipeline(req: IntegrityRequest) -> Dict:
         "damaged_regions":           damaged_regions,
         "checks":                    checks,
         "scores":                    core_assessment.scores.model_dump() if core_assessment else None,
+        "blocks":                    [b.model_dump() for b in core_assessment.blocks] if core_assessment else [],
+        "decoder":                   core_assessment.decoder.model_dump() if (core_assessment and core_assessment.decoder) else None,
+        "reference_comparison":      core_assessment.reference_comparison.model_dump() if (core_assessment and core_assessment.reference_comparison) else None,
+        "ml_signal":                 core_assessment.ml_signal.model_dump() if (core_assessment and core_assessment.ml_signal) else None,
+        "section_breakdown":         core_assessment.section_breakdown.model_dump() if (core_assessment and core_assessment.section_breakdown) else None,
         "content_test_result":       s8.get("details", {}),
         "hash_result":               s10,
         "explanation":               explanation,
@@ -1189,3 +1194,15 @@ async def batch_analyze(requests: List[IntegrityRequest]):
         except Exception as e:
             results.append({"artifact_id": req.artifact_id, "status": "error", "reason": str(e)})
     return results
+
+
+# ─── Mount Phase 1 & 2 Sub-Routers ────────────────────────────────────────────
+try:
+    from backend.disk_recovery.api import router as recovery_router
+    from backend.fragment_reconstruction.api import router as reconstruction_router
+    app.include_router(recovery_router)
+    app.include_router(reconstruction_router)
+    log.info("Mounted /api/recovery and /api/reconstruction sub-routers successfully.")
+except Exception as _router_err:
+    log.warning("Optional sub-router mounting notice: %s", _router_err)
+

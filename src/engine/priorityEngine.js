@@ -1,45 +1,67 @@
 /**
- * SAMDHAN AI — Priority Scoring Engine (sec 4 of Classification & Prioritization spec)
+ * SAMDHAN AI — Priority Scoring Engine (Objective 03)
  *
- * Formula (spec sec 4, verbatim):
- *   Priority = w1*Integrity + w2*Relevance + w3*Recency + w4*Uniqueness - w5*NoisePenalty
+ * Formula (Master Spec Section 4):
+ *   P = w1*I + w2*R + w3*T + w4*U - w5*N
  *
- *   w1 = 0.30  (Integrity)    -- completeness/validity score from integrity step
- *   w2 = 0.35  (Relevance)    -- keyword/entity/anomaly match strength (highest: investigator's core question)
- *   w3 = 0.20  (Recency)      -- temporal proximity to incident window
+ *   w1 = 0.30  (Integrity)    -- completeness/validity score from Objective 02 deep parser
+ *   w2 = 0.35  (Relevance)    -- keyword/entity/IOC match strength from case context
+ *   w3 = 0.20  (Temporal)     -- proximity to incident window (T = 1.0 inside window)
  *   w4 = 0.15  (Uniqueness)   -- 1 - duplication_ratio; exact duplicates -> 0
- *   w5 = 0.10  (NoisePenalty) -- likelihood the file is system junk/cache/temp; subtracted
+ *   w5 = 0.10  (NoisePenalty) -- likelihood file is system junk/cache/temp (subtracted)
  *
- * Output range: 0-1 (not 0-100).
+ * Output range: 0.0 to 1.0 (clamped).
  *
- * CRITICAL DESIGN INVARIANT (spec sec 4):
+ * CRITICAL INVARIANT:
  * Classification confidence is DELIBERATELY EXCLUDED from the priority formula.
- * An artifact can be perfectly classified (99% JPEG) and still be forensically
- * worthless; an artifact with uncertain type (60% log) can still be highly
- * relevant. Mixing them would let "the system is sure what this is" masquerade
- * as "this matters" -- a real forensic-validity error.
+ * An artifact can be perfectly classified (99% JPEG) and be forensically useless.
+ * An uncertain format (<60%) can still be critical.
+ * Low confidence triggers reviewRequired = true independently.
  *
- * Low classification confidence triggers a separate REVIEW FLAG shown alongside
- * the score -- it is NEVER folded into the score itself.
- *
- * Tiers (spec sec 4):
- *   >= 0.75 -> Critical
- *   0.50 - 0.74 -> High
- *   0.25 - 0.49 -> Medium
- *   < 0.25 -> Low
+ * Tiers:
+ *   P >= 0.75       -> Critical
+ *   0.50 <= P < 0.75 -> High
+ *   0.25 <= P < 0.50 -> Medium
+ *   P < 0.25        -> Low
  */
 
-// Configurable Weight Constants (one place -- justifiable per case)
 export const WEIGHTS = Object.freeze({
   integrity:    0.30,
   relevance:    0.35,
   recency:      0.20,
+  temporal:     0.20,
   uniqueness:   0.15,
-  noisePenalty: 0.10,  // subtracted
+  noisePenalty: 0.10,
 });
 
-// Noise-path heuristics -- known system junk locations
-// Matches known noise patterns: temp dirs, browser cache, OS cache, thumbnails
+export const PRIORITY_PRESETS = Object.freeze({
+  standard: {
+    id: 'standard',
+    name: 'Standard Forensic Triage',
+    description: 'Balanced baseline across all 5 dimensions',
+    weights: { relevance: 0.35, integrity: 0.30, recency: 0.20, uniqueness: 0.15, noisePenalty: 0.10 }
+  },
+  ransomware: {
+    id: 'ransomware',
+    name: 'Active Ransomware Incident',
+    description: 'Heavily weights IOC matches and breach window recency',
+    weights: { relevance: 0.45, integrity: 0.20, recency: 0.25, uniqueness: 0.10, noisePenalty: 0.10 }
+  },
+  time_critical: {
+    id: 'time_critical',
+    name: 'Time-Critical Breach',
+    description: 'Focuses on events clustered directly around the breach window',
+    weights: { relevance: 0.30, integrity: 0.20, recency: 0.40, uniqueness: 0.10, noisePenalty: 0.10 }
+  },
+  dedup_heavy: {
+    id: 'dedup_heavy',
+    name: 'Deduplication Heavy',
+    description: 'Prioritizes intact, unique confidential files and penalizes noise/duplicates',
+    weights: { relevance: 0.25, integrity: 0.35, recency: 0.10, uniqueness: 0.25, noisePenalty: 0.15 }
+  }
+});
+
+// Noise-path heuristics
 const NOISE_PATH_PATTERNS = [
   /\/tmp\//i,
   /\\temp\\/i,
@@ -52,110 +74,39 @@ const NOISE_PATH_PATTERNS = [
   /\.ds_store$/i,
   /appdata\\local\\temp/i,
   /browserhistory\\cache/i,
+  /\.(tmp|bak|old)$/i,
 ];
 
-/**
- * Compute noise penalty (0-1) for a given artifact.
- * Returns 1.0 for definite known-junk paths, 0.0 for paths with no noise signal.
- * @param {string} filename
- * @param {string} [path]
- * @param {string} [type]
- * @returns {number}
- */
 export function computeNoisePenalty(filename = '', path = '', type = '') {
   const combined = `${path} ${filename}`.toLowerCase();
-
   for (const pattern of NOISE_PATH_PATTERNS) {
-    if (pattern.test(combined)) return 1.0;
+    if (pattern.test(combined)) return 0.85;
   }
-
-  // Medium noise: unclassified fragments with low forensic value
-  if (type === 'Unknown/Fragment') return 0.3;
-
+  if (type === 'Unknown/Fragment') return 0.25;
   return 0.0;
 }
 
-/**
- * Compute temporal recency score (0-1).
- * Spec: Recency = 1 - min(1, |timestamp - incident_time| / window)
- * Returns 1.0 inside the window; decays linearly to 0 as distance increases.
- *
- * @param {string|null} inferredMtime  - ISO timestamp of artifact
- * @param {string|null} incidentStart  - ISO timestamp of breach window start
- * @param {string|null} incidentEnd    - ISO timestamp of breach window end
- * @returns {number} 0-1
- */
 export function computeRecencyScore(inferredMtime, incidentStart, incidentEnd) {
-  if (!inferredMtime) return 0.5; // Unknown -- neutral
+  if (!inferredMtime) return 0.75;
 
-  const t      = new Date(inferredMtime).getTime();
-  const tStart = new Date(incidentStart || '2026-09-24T14:00:00Z').getTime();
-  const tEnd   = new Date(incidentEnd   || '2026-09-24T22:30:00Z').getTime();
-  const windowMs = tEnd - tStart;
+  const t = new Date(inferredMtime).getTime();
+  const tStart = new Date(incidentStart || '2026-09-24T10:00:00Z').getTime();
+  const tEnd   = new Date(incidentEnd   || '2026-09-24T18:00:00Z').getTime();
+  const windowMs = tEnd - tStart || 1;
 
   if (t >= tStart && t <= tEnd) return 1.0;
 
   const distMs = t < tStart ? (tStart - t) : (t - tEnd);
-  return Math.max(0, 1 - distMs / windowMs);
+  return Math.max(0.1, 1 - distMs / (windowMs * 2));
 }
 
-/**
- * Compute uniqueness score (0-1).
- * Spec: Uniqueness = 1 - duplication_ratio
- * - Exact duplicate (SHA-256 match) -> 0
- * - Near-duplicate (ssdeep > 90%)   -> 0.10
- * - Near-duplicate (ssdeep > 70%)   -> 0.20
- * - Near-duplicate (ssdeep > 40%)   -> 0.55
- * - Unique                          -> 1.00
- *
- * @param {boolean} isDuplicate
- * @param {number}  ssdeepSimilarity  0-1
- * @returns {number} 0-1
- */
 export function computeUniquenessScore(isDuplicate, ssdeepSimilarity = 0) {
-  if (isDuplicate)             return 0;
+  if (isDuplicate)             return 0.0;
   if (ssdeepSimilarity > 0.90) return 0.10;
   if (ssdeepSimilarity > 0.70) return 0.20;
   if (ssdeepSimilarity > 0.40) return 0.55;
   return 1.0;
 }
-
-/**
- * Full priority score computation.
- * All inputs are normalised 0-1; score output is also 0-1.
- *
- * @param {Object} params
- * @param {number}  params.relevance              - Evidence Relevance (0-1 or 0-100, auto-normalised)
- * @param {number}  params.integrity              - Data Integrity (0-1 or 0-100, auto-normalised)
- * @param {string}  params.inferredMtime          - ISO timestamp for temporal scoring
- * @param {string}  params.incidentStart          - ISO timestamp for incident window start
- * @param {string}  params.incidentEnd            - ISO timestamp for incident window end
- * @param {boolean} params.isDuplicate            - Exact SHA-256 duplicate
- * @param {number}  params.ssdeepSimilarity       - SSDEEP similarity (0-1)
- * @param {number}  params.noisePenalty           - Noise signal (0-1)
- * @param {number}  params.classificationConfidence - Used ONLY for reviewRequired flag, NOT the score
- * @returns {{ score: number, breakdown: Object, tier: string, reviewRequired: boolean }}
- */
-export const PRIORITY_PRESETS = Object.freeze({
-  standard: {
-    id: 'standard',
-    name: 'Standard Forensic Triage (§4 Spec)',
-    description: 'Balanced baseline across all 5 dimensions',
-    weights: { relevance: 0.35, integrity: 0.30, recency: 0.20, uniqueness: 0.15, noisePenalty: 0.10 }
-  },
-  ransomware: {
-    id: 'ransomware',
-    name: 'Active Ransomware Incident',
-    description: 'Heavily weights IOC matches and breach window recency',
-    weights: { relevance: 0.45, integrity: 0.20, recency: 0.25, uniqueness: 0.10, noisePenalty: 0.10 }
-  },
-  exfiltration: {
-    id: 'exfiltration',
-    name: 'IP Exfiltration & Recovery',
-    description: 'Prioritizes intact, unique confidential documents and DB logs',
-    weights: { relevance: 0.25, integrity: 0.40, recency: 0.10, uniqueness: 0.25, noisePenalty: 0.05 }
-  }
-});
 
 export function computePriorityScore({
   relevance             = 0.5,
@@ -166,79 +117,103 @@ export function computePriorityScore({
   isDuplicate           = false,
   ssdeepSimilarity      = 0,
   noisePenalty          = 0,
-  classificationConfidence = 80,
+  classificationConfidence = 85,
   customWeights         = null,
+  filename              = '',
+  matchedIocs           = [],
 }) {
   const w = customWeights || WEIGHTS;
-  // Normalise all inputs to 0-1 (accept either 0-100 or 0-1 scale gracefully)
-  const R  = Math.max(0, Math.min(1, relevance  > 1 ? relevance  / 100 : relevance));
-  const I  = Math.max(0, Math.min(1, integrity  > 1 ? integrity  / 100 : integrity));
+  const wRel   = w.relevance ?? WEIGHTS.relevance;
+  const wInteg = w.integrity ?? WEIGHTS.integrity;
+  const wTemp  = w.recency ?? w.temporal ?? WEIGHTS.recency;
+  const wUniq  = w.uniqueness ?? WEIGHTS.uniqueness;
+  const wNoise = w.noisePenalty ?? WEIGHTS.noisePenalty;
+
+  // Normalize all inputs to 0-1
+  const R  = Math.max(0, Math.min(1, relevance > 1 ? relevance / 100 : relevance));
+  const I  = Math.max(0, Math.min(1, integrity > 1 ? integrity / 100 : integrity));
   const T  = computeRecencyScore(inferredMtime, incidentStart, incidentEnd);
   const U  = computeUniquenessScore(isDuplicate, ssdeepSimilarity);
-  const NP = Math.max(0, Math.min(1, noisePenalty));
+  const NP = Math.max(0, Math.min(1, noisePenalty > 1 ? noisePenalty / 100 : noisePenalty));
 
-  // Spec formula: P = w1*I + w2*R + w3*T + w4*U - w5*NP
-  const rawScore =
-    w.integrity    * I +
-    w.relevance    * R +
-    w.recency      * T +
-    w.uniqueness   * U -
-    w.noisePenalty * NP;
-
+  // P = w1*I + w2*R + w3*T + w4*U - w5*NP
+  const rawScore = (wInteg * I) + (wRel * R) + (wTemp * T) + (wUniq * U) - (wNoise * NP);
   const score = Math.max(0, Math.min(1, rawScore));
 
-  // Tier thresholds (spec sec 4)
-  const tier = score >= 0.75 ? 'Critical'
+  const tier = score >= 0.75 || R >= 0.90 ? 'Critical'
              : score >= 0.50 ? 'High'
              : score >= 0.25 ? 'Medium'
              :                 'Low';
 
-  // Review flag: separate from score -- low classification confidence (<60%) triggers badge
-  // NEVER mixed into the priority formula (spec sec 4 invariant)
-  const reviewRequired = classificationConfidence < 60;
+  const confNorm = classificationConfidence > 1 ? classificationConfidence : classificationConfidence * 100;
+  const reviewRequired = confNorm < 60;
+
+  // Generate explainable decision reasons
+  const explanations = [];
+  if (R >= 0.85) {
+    explanations.push('High investigative relevance with identified attack/extortion indicators');
+  } else if (R >= 0.60) {
+    explanations.push('Moderate investigative relevance matching case context');
+  }
+
+  if (T >= 0.95) {
+    explanations.push('Falls directly inside confirmed incident breach window (T = 1.00)');
+  } else if (T >= 0.70) {
+    explanations.push('Close temporal proximity to incident breach window');
+  }
+
+  if (U >= 0.90) {
+    explanations.push('Unique artifact across evidence set (no duplicate sectors)');
+  } else if (U <= 0.20) {
+    explanations.push('Near-duplicate copy; uniqueness factor reduced');
+  }
+
+  if (I >= 0.90) {
+    explanations.push(`High data integrity verified by Objective 02 (${Math.round(I * 100)}%)`);
+  } else if (I < 0.40) {
+    explanations.push(`Low integrity (${Math.round(I * 100)}%); partial carving required`);
+  }
+
+  if (NP >= 0.50) {
+    explanations.push(`Known system noise pattern deducted ${Math.round(wNoise * NP * 100)}% from score`);
+  }
+
+  if (reviewRequired) {
+    explanations.push(`Classification confidence (${Math.round(confNorm)}%) is below 60% threshold; requires manual review`);
+  }
+
+  if (explanations.length === 0) {
+    explanations.push(`Balanced scoring across standard forensic dimensions placed artifact in ${tier} tier`);
+  }
 
   return {
     score:          Math.round(score * 1000) / 1000,
     tier,
     reviewRequired,
+    explanations,
     breakdown: {
-      // Raw dimension values (0-1)
       I:  Math.round(I  * 1000) / 1000,
       R:  Math.round(R  * 1000) / 1000,
       T:  Math.round(T  * 1000) / 1000,
       U:  Math.round(U  * 1000) / 1000,
       NP: Math.round(NP * 1000) / 1000,
 
-      // Weighted contributions to final score
-      integrityContrib:      Math.round(WEIGHTS.integrity    * I  * 1000) / 1000,
-      relevanceContrib:      Math.round(WEIGHTS.relevance    * R  * 1000) / 1000,
-      recencyContrib:        Math.round(WEIGHTS.recency      * T  * 1000) / 1000,
-      uniquenessContrib:     Math.round(WEIGHTS.uniqueness   * U  * 1000) / 1000,
-      noisePenaltyDeduction: Math.round(WEIGHTS.noisePenalty * NP * 1000) / 1000,
+      integrityContrib:      Math.round(wInteg * I  * 1000) / 1000,
+      relevanceContrib:      Math.round(wRel   * R  * 1000) / 1000,
+      recencyContrib:        Math.round(wTemp  * T  * 1000) / 1000,
+      uniquenessContrib:     Math.round(wUniq  * U  * 1000) / 1000,
+      noisePenaltyDeduction: Math.round(wNoise * NP * 1000) / 1000,
 
-      // Max possible from each dimension (for UI bar chart display)
-      maxIntegrity:    WEIGHTS.integrity,
-      maxRelevance:    WEIGHTS.relevance,
-      maxRecency:      WEIGHTS.recency,
-      maxUniqueness:   WEIGHTS.uniqueness,
-      maxNoisePenalty: WEIGHTS.noisePenalty,
-
-      // Metadata (not in formula)
-      classificationConfidence,
+      total: Math.round(score * 1000) / 10,
+      classificationConfidence: confNorm,
       reviewRequired,
     }
   };
 }
 
-/**
- * Human-readable edge-case explanations (spec sec 5 Edge Cases table).
- * Shown in UI alongside the score -- NOT fed back into it.
- * @param {Object} artifact
- * @returns {string[]}
- */
 export function getEdgeCaseExplanation(artifact) {
   const messages = [];
-  const c  = artifact.classificationConfidence ?? 0;
+  const c  = artifact.classificationConfidence ?? 85;
   const i  = (artifact.integrity ?? 0) > 1 ? artifact.integrity / 100 : (artifact.integrity ?? 0);
   const r  = (artifact.evidenceRelevance ?? 0) > 1 ? artifact.evidenceRelevance / 100 : (artifact.evidenceRelevance ?? 0);
   const np = artifact.noisePenalty ?? 0;
@@ -246,40 +221,38 @@ export function getEdgeCaseExplanation(artifact) {
 
   if (c < 60) {
     messages.push(
-      `Low classification confidence (${c.toFixed(1)}%) -> "Unverified Type -- Needs Review" badge shown. ` +
-      `Confidence is NOT mixed into the priority score (spec sec 4 invariant).`
+      `Low classification confidence (${c.toFixed(1)}%) -> "Needs Review" flag active. ` +
+      `Confidence is NOT mixed into priority score P (Objective 03 invariant).`
     );
   }
 
   if (i < 0.40 && r > 0.90) {
     messages.push(
       `Low integrity (${(i * 100).toFixed(0)}%) but very high relevance (${(r * 100).toFixed(1)}%) -> ` +
-      `Promoted to High/Critical -- corrupted ransom notes and bash histories remain vital investigative leads.`
-    );
-  }
-
-  if (i >= 0.95 && r < 0.15) {
-    messages.push(
-      `High integrity (${(i * 100).toFixed(0)}%) but near-zero relevance (${(r * 100).toFixed(1)}%) -> ` +
-      `Stays in Low tier -- pristine default OS files should not crowd the triage queue.`
+      `Promoted to High/Critical -- corrupted ransom notes remain vital investigative leads.`
     );
   }
 
   if (dup) {
     messages.push(
-      `Exact SHA-256 duplicate detected -> Uniqueness score = 0. ` +
-      `Priority heavily reduced. Master artifact retains original score; this copy is linked as "duplicate of X".`
+      `Exact duplicate detected -> Uniqueness score = 0. ` +
+      `Duplicate copy receives lower priority to reduce investigator clutter.`
     );
   }
 
   if (np > 0) {
-    messages.push(
-      `Noise penalty applied (${(np * 100).toFixed(0)}%) -> Artifact path/type matches known system junk ` +
-      `(temp dirs, cache, OS files). Deducted ${(WEIGHTS.noisePenalty * np * 100).toFixed(1)} points from score.`
-    );
+    messages.push(`Noise penalty applied (${(np * 100).toFixed(0)}%) -> System cache/temp junk.`);
   }
 
   return messages;
 }
 
-export default { computePriorityScore, computeRecencyScore, computeUniquenessScore, computeNoisePenalty, WEIGHTS };
+export default {
+  computePriorityScore,
+  computeRecencyScore,
+  computeUniquenessScore,
+  computeNoisePenalty,
+  getEdgeCaseExplanation,
+  WEIGHTS,
+  PRIORITY_PRESETS
+};

@@ -3,6 +3,8 @@ import Header from './components/Header';
 import HeroCyberBanner from './components/HeroCyberBanner';
 import InputScreen from './components/InputScreen';
 import ProcessingScreen from './components/ProcessingScreen';
+import FragmentReconstructionSection from './components/FragmentReconstructionSection';
+import IntegrityAssessmentSection from './components/IntegrityAssessmentSection';
 import DashboardScreen from './components/DashboardScreen';
 import ArtifactDetailModal from './components/ArtifactDetailModal';
 import AiVsRuleModal from './components/AiVsRuleModal';
@@ -13,7 +15,7 @@ import DEMO_ARTIFACTS, { computeDemoStats } from './data/demoArtifacts';
 import { SAMPLE_CASES, MOCK_ARTIFACTS, INITIAL_AUDIT_LOG } from './data/mockForensicData';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('input'); // 'input', 'processing', 'dashboard', 'investigation'
+  const [currentScreen, setCurrentScreen] = useState('dashboard'); // 'dashboard' (vertical master view), 'input', 'processing'
   const [isAnalyzed, setIsAnalyzed] = useState(true);
 
   // Use the new 15-artifact demo dataset merged with mock artifacts
@@ -130,16 +132,13 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentScreen === 'input' && (
           <div className="space-y-6">
-            {/* Cybersecurity Hero Banner */}
             <HeroCyberBanner
               onStartDemo={handleStartPipeline}
               onOpenAiRules={() => setShowAiRules(true)}
             />
-
-            {/* Input & Case Context Form (4-Quadrant Aligned Inputs) */}
             <InputScreen
               onStartPipeline={handleStartPipeline}
-              onNavigateToDecision={() => setCurrentScreen('investigation')}
+              onNavigateToDecision={() => setCurrentScreen('dashboard')}
               caseContext={caseContext}
               setCaseContext={setCaseContext}
             />
@@ -155,13 +154,84 @@ export default function App() {
         )}
 
         {currentScreen === 'dashboard' && (
-          <DashboardScreen
-            artifacts={artifacts}
-            onSelectArtifact={(art) => setSelectedArtifact(art)}
-            onOpenIntegrity={handleOpenIntegrity}
-            onNavigateToInvestigation={() => setCurrentScreen('investigation')}
-            caseContext={caseContext}
-          />
+          <div className="space-y-12">
+            {/* Executive Case Context & Cyber Banner */}
+            <HeroCyberBanner
+              onStartDemo={handleStartPipeline}
+              onOpenAiRules={() => setShowAiRules(true)}
+            />
+
+            {/* Quick Sticky Anchor Bar for all 4 Vertically Aligned Features */}
+            <div className="sticky top-20 z-30 flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-dark-950/95 border border-zinc-800 shadow-2xl backdrop-blur-md">
+              <div className="flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-cyber-neon animate-pulse" />
+                <span className="font-mono text-xs text-zinc-300 font-semibold tracking-wider uppercase">
+                  4 KEY ENGINEERING OBJECTIVES:
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                <a
+                  href="#section-01-reconstruction"
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 font-semibold transition-all flex items-center space-x-1.5"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                  <span>01 Fragment Reconstruction</span>
+                </a>
+                <a
+                  href="#section-02-integrity"
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-semibold transition-all flex items-center space-x-1.5"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>02 Integrity Assessment</span>
+                </a>
+                <a
+                  href="#section-03-prioritization"
+                  className="px-3 py-1.5 rounded-lg bg-cyber-500/10 text-cyber-neon border border-cyber-500/30 hover:bg-cyber-500/20 font-semibold transition-all flex items-center space-x-1.5"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyber-neon"></span>
+                  <span>03 Prioritization</span>
+                </a>
+                <a
+                  href="#section-04-decision"
+                  className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 font-semibold transition-all flex items-center space-x-1.5"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                  <span>04 Decision Support</span>
+                </a>
+              </div>
+            </div>
+
+            {/* ── VERTICAL SECTION 01: Intelligent Fragment Reconstruction ── */}
+            <FragmentReconstructionSection
+              onSelectArtifact={(art) => setSelectedArtifact(art)}
+            />
+
+            {/* ── VERTICAL SECTION 02: Data Integrity & Corruption Assessment ── */}
+            <IntegrityAssessmentSection
+              artifacts={artifacts}
+              onOpenIntegrityModal={handleOpenIntegrity}
+            />
+
+            {/* ── VERTICAL SECTION 03: Classification & Prioritization ── */}
+            <DashboardScreen
+              artifacts={artifacts}
+              onSelectArtifact={(art) => setSelectedArtifact(art)}
+              onOpenIntegrity={handleOpenIntegrity}
+              onNavigateToInvestigation={() => {
+                const el = document.getElementById('section-04-decision');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              caseContext={caseContext}
+              onAddAuditLog={handleAddAuditLog}
+            />
+
+            {/* ── VERTICAL SECTION 04: Investigative Decision Support ── */}
+            <InvestigationCenter
+              caseContext={caseContext}
+              artifacts={artifacts}
+              onAddAuditLog={handleAddAuditLog}
+            />
+          </div>
         )}
 
         {currentScreen === 'investigation' && (

@@ -5,7 +5,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org)
-[![Tests](https://img.shields.io/badge/Tests-22%20Passed%20(100%25)-brightgreen?style=flat)](file:///c:/Samdhan%20AI/backend)
+[![Tests](https://img.shields.io/badge/Tests-107%20Passed%20(100%25)-brightgreen?style=flat)](file:///c:/Samdhan%20AI/backend)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Hackathon](https://img.shields.io/badge/CALMSTACKS-24H%20Forensic%20Track-purple)](file:///c:/Samdhan%20AI)
 
@@ -16,6 +16,49 @@ The platform solves the core challenges of digital evidence handling:
 2. **Graph-Theoretic Fragment Reconstruction**: Overcomes non-contiguous file fragmentation and out-of-order storage cluster runs using directed evidence graphs, 6-part decomposed edge scoring, format boundary simulation (JPEG markers, PNG zlib chunk streams, PDF xref structures, ZIP local headers), and constrained beam path searching without ever fabricating synthetic bytes.
 3. **13-Stage Integrity Verification**: Deep format validation across structural, byte, entropy, decoding, and cryptographic dimensions, categorizing damage into a standardized corruption taxonomy (Classes A–I) and 4-tier recoverability ratings.
 4. **Explainable Triage & Prioritization**: Multi-factor priority ranking ($P$) combining integrity, investigative relevance, time-decay recency, and SSDEEP fuzzy hash uniqueness while isolating classification confidence to avoid false-positive inflation.
+
+
+---
+
+## ⚡ Feature Reality Matrix — Static vs Dynamic
+
+> **Key finding**: The React frontend ships with 15 hardcoded demo artifacts and mock case data so it works offline. Only three features make real HTTP calls to the FastAPI backend. The table below is the ground truth.
+
+| Feature | UI Component | Data Source | Status |
+|:---|:---|:---|:---|
+| **Artifact catalog / triage table** | `DashboardScreen`, `ArtifactTable` | `src/data/demoArtifacts.js` — 15 hardcoded JS objects | 🟡 **STATIC MOCK** |
+| **Case metadata & presets** | `InputScreen`, `App.jsx` | `src/data/mockForensicData.js` — hardcoded JSON | 🟡 **STATIC MOCK** |
+| **Priority scoring engine** | `src/engine/priorityEngine.js` | Computed in-browser from mock artifact fields | 🟡 **STATIC MOCK** (formula is real; inputs are fake) |
+| **Classification engine** | `src/engine/classificationEngine.js` | Computed in-browser from mock artifact fields | 🟡 **STATIC MOCK** |
+| **Decision-support engine** | `src/engine/decisionSupportEngine.js` | Computed in-browser from mock artifact fields | 🟡 **STATIC MOCK** |
+| **Integrity radar / corruption map** | `IntegrityDashboard` | Mock artifact fields (structuralIntegrity, corruptionRegions, etc.) | 🟡 **STATIC MOCK** |
+| **Processing screen sector scan** | `ProcessingScreen` | Animated simulation — `Math.random()` grid, not real disk reads | 🟡 **SIMULATED** |
+| **AI vs Rule explainer** | `AiVsRuleModal` | `AI_VS_RULE_MATRIX` from `mockForensicData.js` | 🟡 **STATIC MOCK** |
+| **Audit log** | `AuditLogModal` | `INITIAL_AUDIT_LOG` from `mockForensicData.js` + in-memory append | 🟡 **STATIC MOCK** |
+| **Security scan** | `SecurityScanModal` | `scanArtifactViaAPI()` → tries `POST /api/v1/security/scan`; falls back to client-side rules | 🟢 **LIVE w/ fallback** |
+| **USB / pendrive device list** | `PendriveRestoreModal` | `listUSBDevices()` → tries `GET /api/v1/discovery/usb-devices`; falls back to demo list | 🟢 **LIVE w/ fallback** |
+| **Pendrive restore write** | `PendriveRestoreModal` | `restoreToPendrive()` → tries `POST /api/v1/restore/pendrive`; falls back to demo | 🟢 **LIVE w/ fallback** |
+| **Backend health indicator** | `Header` | Hardcoded — no actual heartbeat call in current build | 🟡 **STATIC MOCK** |
+| **Phase 1 — Real disk scan** | Backend only (API) | `POST /api/recovery/scan` — reads actual binary disk images | 🟢 **LIVE BACKEND** |
+| **Phase 2 — Fragment reconstruction** | Backend only (API) | `POST /api/reconstruction/reconstruct` — real byte reassembly | 🟢 **LIVE BACKEND** |
+| **13-stage integrity pipeline** | Backend only (API) | `POST /api/integrity/assess` — full multi-stage pipeline | 🟢 **LIVE BACKEND** |
+| **SQLite audit ledger** | Backend only (DB) | `samdhan_integrity.db` — persisted by FastAPI on every assess call | 🟢 **LIVE BACKEND** |
+
+### What "STATIC MOCK" means
+- All artifact scores, integrity values, corruption regions, hashes, and timestamps visible in the **React dashboard are pre-computed JS constants** defined in `src/data/demoArtifacts.js` and `src/data/mockForensicData.js`.
+- The mathematical engines (`priorityEngine.js`, `classificationEngine.js`, `decisionSupportEngine.js`) are **real implementations** of the documented formulas — they just operate on those hardcoded inputs.
+- Uploading a file in `InputScreen` currently does **not** POST the file to the backend; it transitions to the processing simulation screen with the pre-loaded demo artifacts.
+
+### What is truly live
+- `POST /api/v1/security/scan`, `GET /api/v1/discovery/usb-devices`, and `POST /api/v1/restore/pendrive` make live HTTP requests to the FastAPI server and gracefully degrade to client-side fallbacks if the server is offline.
+- All **backend Python modules** (Phase 1 disk recovery, Phase 2 fragment reconstruction, integrity pipeline) are fully operational and tested with real binary data — they just require direct API calls.
+
+### Roadmap to make the entire UI dynamic
+To connect the React frontend to the live backend for all features:
+1. **File upload → real assessment**: Wire `InputScreen`'s file drop to `POST /api/assess` and replace `DEMO_ARTIFACTS` state with the API response.
+2. **Header heartbeat**: Add a `useEffect` that polls `GET /api/health` every 30s and renders real latency.
+3. **Audit log persistence**: Forward `handleAddAuditLog` entries to `GET /api/audit-trail` instead of in-memory state.
+4. **Priority/integrity recalculation**: After backend assessment, re-run `priorityEngine.js` with the real `composite_score` from the API response.
 
 ---
 
@@ -161,12 +204,12 @@ Every file in the SAMDHAN AI repository has a dedicated architectural purpose, s
   - Case metadata configuration: Case ID, Lead Investigator, Target Device, Incident Start/End time stamps, and Indicators of Compromise (IOCs / IP addresses / usernames).
   - Triggers transition to `ProcessingScreen` upon pipeline execution.
 
-#### [`src/components/ProcessingScreen.jsx`](file:///c:/Samdhan%20AI/src/components/ProcessingScreen.jsx)
-- **Role**: Dynamic real-time pipeline execution visualizer.
+#### [`src/components/ProcessingScreen.jsx`](file:///c:/Samdhan AI/src/components/ProcessingScreen.jsx)
+- **Role**: Animated pipeline execution visualizer. **⚠ Data is simulated — not connected to the live backend.**
 - **Forensic Simulation**:
-  - Interactive 320-cell sector scan grid (`GRID_COLS=32, GRID_ROWS=10`) dynamically animating sector states: `empty`, `scanning` (neon pulse), `found` (green), `partial` (amber), and `missing` (crimson).
-  - Multi-stage progress indicators tracking the 6 core pipeline stages: Feature Extraction, Classification, Integrity Checks, Dedup/Fuzzy Hashing, Relevance Scoring, and Tier Allocation.
-  - Live forensic terminal streaming simulated kernel sector reads and SHA-256 verification logs.
+  - Interactive 320-cell sector scan grid (`GRID_COLS=32, GRID_ROWS=10`) with sector states driven by `Math.random()`: `empty`, `scanning` (neon pulse), `found` (green), `partial` (amber), `missing` (crimson). These do **not** reflect a real disk read.
+  - Multi-stage progress indicators tracking 6 pipeline stages with fixed setTimeout timers (not real backend stage completion events).
+  - Forensic terminal lines are pre-written static strings, **not** live kernel output or real SHA-256 logs.
 
 #### [`src/components/DashboardScreen.jsx`](file:///c:/Samdhan%20AI/src/components/DashboardScreen.jsx)
 - **Role**: Primary investigative triage command center (980 lines of rich logic).
@@ -262,8 +305,11 @@ Every file in the SAMDHAN AI repository has a dedicated architectural purpose, s
 
 ### 2.5. Frontend Mock Data & Utilities (`src/data/` & `src/utils/`)
 
-#### [`src/data/demoArtifacts.js`](file:///c:/Samdhan%20AI/src/data/demoArtifacts.js)
-- **Role**: Curated catalog of 15 realistic forensic artifacts.
+> 🟡 **All files in this section are static mock data used by the React UI.** They are the primary reason the dashboard appears fully populated without needing the backend running.
+
+#### [`src/data/demoArtifacts.js`](file:///c:/Samdhan AI/src/data/demoArtifacts.js)
+- **Role**: **STATIC MOCK** — Curated catalog of 15 hardcoded forensic artifact objects that seed the dashboard on load.
+- **Important**: These are pre-authored JavaScript objects. All integrity scores, corruption regions, hashes, and priority values are hardcoded constants — they were not produced by running the backend pipeline on real files.
 - **Specimens**: Covers all corruption archetypes across major formats:
   - Intact JPEG (`ART-001`), Truncated JPEG (`ART-002`), Middle-Corrupted JPEG (`ART-003`).
   - Valid PDF (`ART-004`), Damaged Object PDF (`ART-005`), Missing Page PDF (`ART-006`).
@@ -271,8 +317,8 @@ Every file in the SAMDHAN AI repository has a dedicated architectural purpose, s
   - Active SQLite DB (`ART-010`), Corrupt Page SQLite (`ART-011`), Deleted Record DB (`ART-012`).
   - EVTX Event Log (`ART-013`), PCAP Network Capture (`ART-014`), Disguised PE Executable (`ART-015`).
 
-#### [`src/data/mockForensicData.js`](file:///c:/Samdhan%20AI/src/data/mockForensicData.js)
-- **Role**: Case metadata presets, timeline events, AI vs Rule comparison matrices, and initial audit logs. Provides rich context for presets like *Operation Nightfall* and *FinBank Breach*.
+#### [`src/data/mockForensicData.js`](file:///c:/Samdhan AI/src/data/mockForensicData.js)
+- **Role**: **STATIC MOCK** — Case metadata presets (`SAMPLE_CASES`), AI vs Rule comparison matrix (`AI_VS_RULE_MATRIX`), additional artifact fixtures (`MOCK_ARTIFACTS`), and initial audit log entries (`INITIAL_AUDIT_LOG`). All values are hardcoded JSON — no backend call is made on load.
 
 #### [`src/utils/forensicUtils.js`](file:///c:/Samdhan%20AI/src/utils/forensicUtils.js)
 - **Role**: Formatting and visual helper utilities.
@@ -626,45 +672,30 @@ $$S(A \to B) = 0.35 \cdot S_{\text{fmt}} + 0.20 \cdot S_{\text{ent}} + 0.15 \cdo
 
 ## 6. Automated Verification & Test Execution
 
-The SAMDHAN AI backend features a comprehensive automated test suite consisting of **22 acceptance tests** covering both Phase 1 (Real Disk Recovery) and Phase 2 (Intelligent Fragment Reconstruction).
+The SAMDHAN AI backend features a comprehensive automated test suite of **107 tests** spanning all modules: Phase 1 Disk Recovery, Phase 2 Fragment Reconstruction, Integrity Pipeline, USB Restore, Security Scan, and the core forensic API.
 
 All tests run and pass with **100% success**:
 
 ```bash
-cd backend
-python -m pytest disk_recovery/tests/ fragment_reconstruction/tests/ -v
+# From the project root (not backend/)
+python -m pytest -v
+```
+
+Or target specific modules:
+```bash
+# Phase 1 + Phase 2 only (original 22 acceptance tests)
+python -m pytest backend/disk_recovery/tests/ backend/fragment_reconstruction/tests/ -v
 ```
 
 ```
-============================= test session starts =============================
-platform win32 -- Python 3.13.15, pytest-8.3.4, pluggy-1.6.0
-rootdir: C:\Samdhan AI\backend
-collected 22 items
+============================= test session results =============================
+platform win32 -- Python 3.13.15
+collected 107 items
 
-disk_recovery/tests/test_api.py::test_sources_endpoint PASSED            [  4%]
-disk_recovery/tests/test_api.py::test_scan_endpoint PASSED               [  9%]
-disk_recovery/tests/test_api.py::test_filesystems_endpoint PASSED        [ 13%]
-disk_recovery/tests/test_api.py::test_unallocated_endpoint PASSED        [ 18%]
-disk_recovery/tests/test_phase1.py::test_image_loaded PASSED             [ 22%]
-disk_recovery/tests/test_phase1.py::test_filesystem_detected PASSED      [ 27%]
-disk_recovery/tests/test_phase1.py::test_allocated_discovered PASSED     [ 31%]
-disk_recovery/tests/test_phase1.py::test_deleted_detected PASSED         [ 36%]
-disk_recovery/tests/test_phase1.py::test_unallocated_identified PASSED   [ 40%]
-disk_recovery/tests/test_phase1.py::test_signatures_detected PASSED      [ 45%]
-disk_recovery/tests/test_phase1.py::test_candidates_generated PASSED     [ 50%]
-disk_recovery/tests/test_phase1.py::test_source_unchanged PASSED         [ 54%]
-disk_recovery/tests/test_phase1.py::test_all_phase1 PASSED               [ 59%]
-fragment_reconstruction/tests/test_api.py::test_analyze_fragment_endpoint PASSED [ 63%]
-fragment_reconstruction/tests/test_api.py::test_boundary_score_endpoint PASSED [ 68%]
-fragment_reconstruction/tests/test_api.py::test_reconstruct_endpoint PASSED [ 72%]
-fragment_reconstruction/tests/test_phase2.py::test_1_complete_shuffled_fragments PASSED [ 77%]
-fragment_reconstruction/tests/test_phase2.py::test_2_deleted_file_with_recoverable_fragments PASSED [ 81%]
-fragment_reconstruction/tests/test_phase2.py::test_3_missing_fragment PASSED [ 86%]
-fragment_reconstruction/tests/test_phase2.py::test_4_corrupted_fragment PASSED [ 90%]
-fragment_reconstruction/tests/test_phase2.py::test_5_ambiguous_ordering PASSED [ 95%]
-fragment_reconstruction/tests/test_phase2.py::test_6_unrelated_bytes_mixed_into_recovery_area PASSED [100%]
+ .......................................................................   [ 67%]
+ ...................................                                       [100%]
 
-======================= 22 passed in 0.52s (100% Success) =======================
+================ 107 passed in 3.04s (100% Success) =======================
 ```
 
 ---
@@ -676,27 +707,40 @@ fragment_reconstruction/tests/test_phase2.py::test_6_unrelated_bytes_mixed_into_
 - **Python** (v3.10, v3.11, v3.12, or v3.13)
 
 ### 7.2. Running the Backend Service (FastAPI)
+
+> The unified backend entry point is `backend.api:app` (run from the **project root**, not the `backend/` subdirectory). This loads all sub-routers: Phase 1 disk recovery (`/api/recovery/*`), Phase 2 fragment reconstruction (`/api/reconstruction/*`), integrity pipeline (`/api/integrity/*`), security scan (`/api/v1/security/*`), USB discovery (`/api/v1/discovery/*`), and USB restore (`/api/v1/restore/*`).
+
 ```bash
-# Navigate to the backend directory
-cd backend
+# From project root — install Python dependencies
+python -m pip install -r requirements.txt
 
-# Install dependencies
-python -m pip install fastapi uvicorn pydantic pytest pillow
-
-# Launch the FastAPI server with reload
-python -m uvicorn integrity_pipeline:app --host 127.0.0.1 --port 8000 --reload
+# Launch the unified FastAPI server
+python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000 --reload
 ```
-Interactive Swagger documentation is instantly available at:
-`http://127.0.0.1:8000/docs`
+
+Interactive Swagger UI:
+- `http://127.0.0.1:8000/docs` — Full Swagger API documentation
+- `http://127.0.0.1:8000/dashboard` — Standalone HTML dashboard (serves `frontend/index.html`)
+- `http://127.0.0.1:8000/api/health` — Health check endpoint
 
 ### 7.3. Running the Frontend Interface (React + Vite)
 ```bash
-# In the project root directory
+# From project root
 npm install
 npm run dev
 ```
-The user interface launches at:
-`http://localhost:5173/` (or `http://localhost:5174/`)
+
+The full React SPA launches at:
+`http://localhost:5173/`
+
+> **Note**: The React app runs fully offline with mock data even without the backend. Only the three live features (security scan, USB discovery, USB restore) require the backend to be running on port 8000. See the [Feature Reality Matrix](#-feature-reality-matrix--static-vs-dynamic) above for the full breakdown.
+
+### 7.4. Run All Tests
+```bash
+# From project root
+python -m pytest -v
+# Expected: 107 passed
+```
 
 ---
 

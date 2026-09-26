@@ -35,50 +35,40 @@ export default function Header({
             </div>
           </div>
 
-          {/* Workflow Status / Screen Navigation */}
-          <div className="hidden md:flex items-center space-x-1 bg-dark-900/80 p-1 rounded-lg border border-zinc-800">
-            <button
-              onClick={() => setCurrentScreen('input')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                currentScreen === 'input'
-                  ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-              }`}
+          {/* 4 Key Engineering Objectives — Quick Anchor Jump Bar */}
+          <div className="hidden lg:flex items-center space-x-1 bg-dark-900/90 p-1 rounded-lg border border-zinc-800">
+            <a
+              href="#section-01-reconstruction"
+              onClick={() => { if (currentScreen !== 'dashboard') setCurrentScreen('dashboard'); }}
+              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-medium text-cyan-400 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/30 transition-all flex items-center space-x-1.5"
             >
-              1. Input &amp; Context
-            </button>
-            <button
-              onClick={() => setCurrentScreen('processing')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                currentScreen === 'processing'
-                  ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-              }`}
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+              <span>01 Reconstruct</span>
+            </a>
+            <a
+              href="#section-02-integrity"
+              onClick={() => { if (currentScreen !== 'dashboard') setCurrentScreen('dashboard'); }}
+              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-medium text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 transition-all flex items-center space-x-1.5"
             >
-              <span>2. Processing Engine</span>
-            </button>
-            <button
-              onClick={() => setCurrentScreen('dashboard')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                currentScreen === 'dashboard'
-                  ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-              }`}
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>02 Integrity</span>
+            </a>
+            <a
+              href="#section-03-prioritization"
+              onClick={() => { if (currentScreen !== 'dashboard') setCurrentScreen('dashboard'); }}
+              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-medium text-cyber-neon hover:bg-cyber-500/10 border border-transparent hover:border-cyber-500/30 transition-all flex items-center space-x-1.5"
             >
-              <span>3. Results Dashboard</span>
-              {isAnalyzed && <CheckCircle2 className="w-3.5 h-3.5 text-cyber-neon inline" />}
-            </button>
-            <button
-              onClick={() => setCurrentScreen('investigation')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center space-x-1.5 ${
-                currentScreen === 'investigation'
-                  ? 'bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 shadow-sm'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-              }`}
-            >
-              <span>4. Decision Support</span>
               <span className="w-1.5 h-1.5 rounded-full bg-cyber-neon"></span>
-            </button>
+              <span>03 Prioritize</span>
+            </a>
+            <a
+              href="#section-04-decision"
+              onClick={() => { if (currentScreen !== 'dashboard') setCurrentScreen('dashboard'); }}
+              className="px-2.5 py-1.5 rounded-md text-xs font-mono font-medium text-purple-400 hover:bg-purple-500/10 border border-transparent hover:border-purple-500/30 transition-all flex items-center space-x-1.5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+              <span>04 Decision</span>
+            </a>
           </div>
 
           {/* Security & Forensic Actions */}

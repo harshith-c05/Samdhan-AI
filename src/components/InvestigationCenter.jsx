@@ -194,24 +194,22 @@ export default function InvestigationCenter({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn font-sans text-slate-100">
+    <section id="section-04-decision" className="scroll-mt-24 space-y-6 animate-fadeIn font-sans text-slate-100 rounded-2xl border border-purple-500/30 bg-dark-900/90 backdrop-blur-md p-6 sm:p-8 shadow-2xl relative overflow-hidden">
       
       {/* ── Top Bar & Context ────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-xl bg-dark-900 border border-zinc-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-cyber-500/20 text-cyber-neon border border-cyber-500/40 rounded">
-              DECISION RULE ENGINE ACTIVE
-            </span>
-            <span className="text-xs font-mono text-zinc-400">
-              Deterministic 5-State Mapping · Feat. Security Scan · Explainable Triaging
-            </span>
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-purple-500/15 border border-purple-500/40 text-purple-400 font-mono text-xs mb-2">
+            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+            <span className="font-bold tracking-wider">OBJECTIVE 04</span>
+            <span className="text-zinc-500">•</span>
+            <span>INVESTIGATIVE DECISION SUPPORT</span>
           </div>
-          <h1 className="text-xl font-bold text-white mt-1 font-mono tracking-tight">
-            Investigative Decision Support Center
-          </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Pipeline: <strong className="text-zinc-200">Input → Discovery → Integrity → Classification → Security Scan → Decision → Restore</strong>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide flex items-center space-x-3">
+            <span>INVESTIGATIVE DECISION SUPPORT</span>
+          </h2>
+          <p className="text-sm text-zinc-400 mt-1 max-w-3xl">
+            Provide actionable insights to help investigators or users understand what can realistically be restored, evaluate court admissibility, and maintain cryptographic chain of custody.
           </p>
         </div>
 
@@ -996,6 +994,6 @@ export default function InvestigationCenter({
        />
      )}
 
-   </div>
+   </section>
  );
 }

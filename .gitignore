@@ -32,5 +32,18 @@ __pycache__/
 env/
 venv/
 .venv/
+.pytest_cache/
+
+# Fragment reconstruction output (runtime)
 backend/fragment_reconstruction/output/*
 !backend/fragment_reconstruction/output/.gitkeep
+
+# Runtime databases & generated data
+samdhan_integrity.db
+backend/demo_data/fixtures/all_fixtures.json
+
+# Recovered evidence runtime outputs (write targets, not source)
+recovered_evidence/restored_*.jpg
+recovered_evidence/restored_*.bin
+recovered_evidence/read_only_clones/*
+!recovered_evidence/read_only_clones/.gitkeep
